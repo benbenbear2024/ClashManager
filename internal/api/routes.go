@@ -7,18 +7,12 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine) {
-	// Initialize handlers
 	nodeHandler := handlers.NewNodeHandler()
 	ruleHandler := handlers.NewRuleHandler()
-	groupHandler := handlers.NewGroupHandler()
-	subHandler := handlers.NewSubHandler()
-	settingsHandler := handlers.NewSettingsHandler()
 	sourceHandler := handlers.NewSubscriptionSourceHandler()
 
-	// API routes (all public)
 	api := r.Group("/api")
 	{
-		// Node routes
 		api.GET("/nodes", nodeHandler.ListNodes)
 		api.POST("/nodes", nodeHandler.CreateNode)
 		api.POST("/nodes/import", nodeHandler.ImportNode)
@@ -26,7 +20,6 @@ func SetupRoutes(r *gin.Engine) {
 		api.DELETE("/nodes/:id", nodeHandler.DeleteNode)
 		api.GET("/nodes/:id/export", nodeHandler.ExportNode)
 
-		// Rule routes
 		api.GET("/rules", ruleHandler.ListRules)
 		api.GET("/rules/tags", ruleHandler.GetTags)
 		api.POST("/rules", ruleHandler.CreateRule)
@@ -34,17 +27,6 @@ func SetupRoutes(r *gin.Engine) {
 		api.PUT("/rules/:id", ruleHandler.UpdateRule)
 		api.DELETE("/rules/:id", ruleHandler.DeleteRule)
 
-		// Group routes
-		api.GET("/groups", groupHandler.ListGroups)
-		api.POST("/groups", groupHandler.CreateGroup)
-		api.PUT("/groups/:id", groupHandler.UpdateGroup)
-		api.DELETE("/groups/:id", groupHandler.DeleteGroup)
-
-		// Settings routes
-		api.GET("/settings/dns", settingsHandler.GetDNS)
-		api.POST("/settings/dns", settingsHandler.SaveDNS)
-
-		// Subscription source routes
 		api.GET("/sources", sourceHandler.ListSources)
 		api.GET("/sources/:id", sourceHandler.GetSource)
 		api.POST("/sources", sourceHandler.CreateSource)
@@ -53,7 +35,4 @@ func SetupRoutes(r *gin.Engine) {
 		api.POST("/sources/:id/sync", sourceHandler.SyncSource)
 		api.POST("/sources/test", sourceHandler.TestSource)
 	}
-
-	// Subscription route (public, requires token)
-	r.GET("/sub/:token", subHandler.GetConfig)
 }
