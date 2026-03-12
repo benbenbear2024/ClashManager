@@ -7,6 +7,7 @@ import (
 
 const (
 	ServerPort = ":8090"
+	MihomoPath = "/docs/config.yaml"
 )
 
 // GetDBPath 获取数据库文件的绝对路径

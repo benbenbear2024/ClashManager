@@ -184,6 +184,31 @@ func (h *SubscriptionSourceHandler) SyncSource(c *gin.Context) {
 		return
 	}
 
+	// Generate unique names for nodes
+	// Create a map of existing node names
+	existingNames := make(map[string]bool)
+	for _, node := range existingNodes {
+		existingNames[node.Name] = true
+	}
+
+	// Rename nodes and store original names
+	for i := range nodes {
+		originalName := nodes[i].Name
+		// Generate new name
+		newName := ""
+		for j := 1; ; j++ {
+			newName = fmt.Sprintf("Name%d", j)
+			if !existingNames[newName] {
+				existingNames[newName] = true
+				break
+			}
+		}
+		// Store original name in Rename field
+		nodes[i].Rename = originalName
+		// Update node name
+		nodes[i].Name = newName
+	}
+
 	// Merge nodes based on sync mode
 	mergedNodes := service.MergeNodes(existingNodes, nodes, source.SyncMode, source.Name)
 

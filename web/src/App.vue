@@ -1,9 +1,5 @@
 <template>
-  <!-- 登录和初始化页面不显示主布局 -->
-  <router-view v-if="isAuthPage" />
-
-  <!-- 其他页面显示完整的主布局 -->
-  <div v-else class="app-container">
+  <div class="app-container">
     <el-container style="height: 100vh;">
       <el-aside width="240px">
         <div class="logo">
@@ -33,14 +29,7 @@
             <el-icon><Grid /></el-icon>
             <span>代理组管理</span>
           </el-menu-item>
-          <el-menu-item index="/subscription">
-            <el-icon><Link /></el-icon>
-            <span>订阅配置</span>
-          </el-menu-item>
-          <el-menu-item index="/subscription-logs">
-            <el-icon><Document /></el-icon>
-            <span>订阅日志</span>
-          </el-menu-item>
+
           <el-menu-item index="/sources">
             <el-icon><Download /></el-icon>
             <span>订阅源管理</span>
@@ -50,17 +39,6 @@
             <span>系统设置</span>
           </el-menu-item>
         </el-menu>
-        <div class="aside-footer">
-          <el-divider />
-          <div class="menu-item" @click="router.push('/password')">
-            <el-icon><Lock /></el-icon>
-            <span>修改密码</span>
-          </div>
-          <div class="menu-item logout-section" @click="handleLogout">
-            <el-icon><SwitchButton /></el-icon>
-            <span>退出登录</span>
-          </div>
-        </div>
       </el-aside>
       <el-container>
         <el-header>
@@ -70,29 +48,6 @@
                 <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
               </el-breadcrumb>
             </div>
-          </div>
-          <div class="user-info">
-            <el-dropdown @command="handleCommand">
-              <div class="user-dropdown">
-                <div class="user-avatar">
-                  <el-icon><User /></el-icon>
-                </div>
-                <span class="username">{{ userStore.username }}</span>
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </div>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="password">
-                    <el-icon><Lock /></el-icon>
-                    修改密码
-                  </el-dropdown-item>
-                  <el-dropdown-item command="logout" divided>
-                    <el-icon><SwitchButton /></el-icon>
-                    退出登录
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
           </div>
         </el-header>
         <el-main>
@@ -105,9 +60,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Connection,
   DocumentCopy,
@@ -115,61 +68,24 @@ import {
   Link,
   Document,
   Setting,
-  Lock,
-  SwitchButton,
-  User,
-  ArrowDown,
   Download
 } from '@element-plus/icons-vue'
-import { useUserStore } from '@/stores/user'
 
-const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
 
 const currentPath = computed(() => route.path)
-
-// 判断是否是登录或初始化页面
-const isAuthPage = computed(() => {
-  return route.path === '/login' || route.path === '/setup'
-})
 
 const pageTitleMap = {
   '/nodes': '节点管理',
   '/rules': '规则管理',
   '/groups': '代理组管理',
-  '/subscription': '订阅配置',
-  '/subscription-logs': '订阅日志',
   '/sources': '订阅源管理',
-  '/settings': '系统设置',
-  '/password': '修改密码'
+  '/settings': '系统设置'
 }
 
 const currentPageTitle = computed(() => {
   return pageTitleMap[route.path] || 'Clash配置管理'
 })
-
-const handleCommand = (command) => {
-  if (command === 'logout') {
-    handleLogout()
-  } else if (command === 'password') {
-    router.push('/password')
-  }
-}
-
-const handleLogout = () => {
-  ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    userStore.logout()
-    ElMessage.success('已退出登录')
-    router.push('/login')
-  }).catch(() => {
-    // User cancelled
-  })
-}
 </script>
 
 <style scoped>

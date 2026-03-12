@@ -48,6 +48,7 @@ type Node struct {
 	Source      string         `json:"source"`
 	SourceID    uint           `json:"source_id"`
 	SourceName  string         `json:"source_name"`
+	Rename      string         `json:"rename,omitempty"` // Original node name before renaming
 }
 
 // Rule represents a routing rule

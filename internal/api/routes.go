@@ -2,7 +2,6 @@ package api
 
 import (
 	"clash-manager/internal/api/handlers"
-	"clash-manager/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,25 +13,11 @@ func SetupRoutes(r *gin.Engine) {
 	groupHandler := handlers.NewGroupHandler()
 	subHandler := handlers.NewSubHandler()
 	settingsHandler := handlers.NewSettingsHandler()
-	authHandler := handlers.NewAuthHandler() // Add auth handler
-	subscriptionHandler := handlers.NewSubscriptionHandler()
 	sourceHandler := handlers.NewSubscriptionSourceHandler()
 
-	// Public Auth Routes
-	auth := r.Group("/api/auth")
-	{
-		auth.POST("/login", authHandler.Login)
-		auth.POST("/setup", authHandler.Setup)
-	}
-
-	// Protected API Group
+	// API routes (all public)
 	api := r.Group("/api")
-	api.Use(middleware.AuthMiddleware())
 	{
-		// Auth management (create new user)
-		api.POST("/auth/register", authHandler.CreateUser)
-		api.POST("/auth/password", authHandler.ChangePassword) // Change password
-
 		// Node routes
 		api.GET("/nodes", nodeHandler.ListNodes)
 		api.POST("/nodes", nodeHandler.CreateNode)
@@ -58,17 +43,6 @@ func SetupRoutes(r *gin.Engine) {
 		// Settings routes
 		api.GET("/settings/dns", settingsHandler.GetDNS)
 		api.POST("/settings/dns", settingsHandler.SaveDNS)
-
-		// Subscription management routes
-		api.GET("/subscription/token", subscriptionHandler.GetToken)
-		api.POST("/subscription/token/refresh", subscriptionHandler.RefreshToken)
-		api.GET("/subscription/url", subscriptionHandler.GetSubscriptionURL)
-		api.GET("/subscription/preview", subscriptionHandler.PreviewConfig)
-		api.POST("/subscription/cleanup-rules", subscriptionHandler.CleanupInvalidRules)
-		api.GET("/subscription/logs", subscriptionHandler.GetSubscriptionLogs)
-		api.GET("/subscription/stats", subscriptionHandler.GetSubscriptionStats)
-		api.DELETE("/subscription/logs/old", subscriptionHandler.DeleteOldLogs)
-		api.GET("/subscription/online", subscriptionHandler.GetOnlineClients)
 
 		// Subscription source routes
 		api.GET("/sources", sourceHandler.ListSources)

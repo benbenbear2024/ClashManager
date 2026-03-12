@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -44,17 +45,29 @@ func (h *NodeHandler) CreateNode(c *gin.Context) {
 func (h *NodeHandler) UpdateNode(c *gin.Context) {
 	var node model.Node
 	if err := c.ShouldBindJSON(&node); err != nil {
+		fmt.Printf("UpdateNode: JSON binding error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	idStr := c.Param("id")
-	id, _ := strconv.Atoi(idStr)
+	fmt.Printf("UpdateNode: Received ID parameter: '%s'\n", idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		fmt.Printf("UpdateNode: ID conversion error: %v\n", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
 	node.ID = uint(id)
 
+	fmt.Printf("UpdateNode: Updating node ID=%d, Name=%s, Type=%s, Server=%s, Port=%d, Username=%s, Password=%s, Rename=%s\n", 
+		node.ID, node.Name, node.Type, node.Server, node.Port, node.Username, node.Password, node.Rename)
+
 	if err := h.Repo.Update(&node); err != nil {
+		fmt.Printf("UpdateNode: Database update error: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	fmt.Printf("UpdateNode: Successfully updated node ID=%d\n", node.ID)
 	c.JSON(http.StatusOK, node)
 }
 
@@ -86,6 +99,32 @@ func (h *NodeHandler) ImportNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid link format: " + err.Error()})
 		return
 	}
+
+	// Generate unique name for the node
+	existingNodes, err := h.Repo.FindAll()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get existing nodes"})
+		return
+	}
+
+	existingNames := make(map[string]bool)
+	for _, n := range existingNodes {
+		existingNames[n.Name] = true
+	}
+
+	originalName := node.Name
+	newName := ""
+	for j := 1; ; j++ {
+		newName = fmt.Sprintf("Name%d", j)
+		if !existingNames[newName] {
+			break
+		}
+	}
+
+	// Store original name in Rename field
+	node.Rename = originalName
+	// Update node name
+	node.Name = newName
 
 	if err := h.Repo.Create(node); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save node: " + err.Error()})
