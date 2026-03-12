@@ -10,17 +10,13 @@ const (
 	MihomoPath = "/docs/config.yaml"
 )
 
-// GetDBPath 获取数据库文件的绝对路径
-// 优先使用当前工作目录下的数据库，如果不存在则使用可执行文件目录
 func GetDBPath() string {
-	// 1. 首先检查当前工作目录下是否有数据库
 	cwd, _ := os.Getwd()
 	cwdDbPath := filepath.Join(cwd, "data", "clash.db")
 	if _, err := os.Stat(cwdDbPath); err == nil {
 		return cwdDbPath
 	}
 
-	// 2. 获取可执行文件所在目录
 	exePath, err := os.Executable()
 	if err != nil {
 		return "data/clash.db"
@@ -29,11 +25,27 @@ func GetDBPath() string {
 	exeDir := filepath.Dir(exePath)
 	dbPath := filepath.Join(exeDir, "data", "clash.db")
 
-	// 3. 确保数据目录存在
 	dataDir := filepath.Join(exeDir, "data")
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return "data/clash.db"
 	}
 
 	return dbPath
+}
+
+func GetSubscriptionSourcesPath() string {
+	cwd, _ := os.Getwd()
+	return filepath.Join(cwd, "data", "subscription_sources.json")
+}
+
+func ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+func WriteFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }

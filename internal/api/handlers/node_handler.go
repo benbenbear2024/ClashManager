@@ -6,22 +6,21 @@ import (
 	"strconv"
 
 	"clash-manager/internal/model"
-	"clash-manager/internal/repository"
 	"clash-manager/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type NodeHandler struct {
-	Repo *repository.NodeRepository
+	Service *service.NodeService
 }
 
 func NewNodeHandler() *NodeHandler {
-	return &NodeHandler{Repo: &repository.NodeRepository{}}
+	return &NodeHandler{Service: service.NewNodeService()}
 }
 
 func (h *NodeHandler) ListNodes(c *gin.Context) {
-	nodes, err := h.Repo.FindAll()
+	nodes, err := h.Service.ListNodes()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -35,7 +34,7 @@ func (h *NodeHandler) CreateNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.Repo.Create(&node); err != nil {
+	if err := h.Service.CreateNode(&node); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -62,8 +61,8 @@ func (h *NodeHandler) UpdateNode(c *gin.Context) {
 	fmt.Printf("UpdateNode: Updating node ID=%d, Name=%s, Type=%s, Server=%s, Port=%d, Username=%s, Password=%s, Rename=%s\n", 
 		node.ID, node.Name, node.Type, node.Server, node.Port, node.Username, node.Password, node.Rename)
 
-	if err := h.Repo.Update(&node); err != nil {
-		fmt.Printf("UpdateNode: Database update error: %v\n", err)
+	if err := h.Service.UpdateNode(uint(id), &node); err != nil {
+		fmt.Printf("UpdateNode: Update error: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -78,7 +77,7 @@ func (h *NodeHandler) DeleteNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 		return
 	}
-	if err := h.Repo.Delete(uint(id)); err != nil {
+	if err := h.Service.DeleteNode(uint(id)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -100,8 +99,7 @@ func (h *NodeHandler) ImportNode(c *gin.Context) {
 		return
 	}
 
-	// Generate unique name for the node
-	existingNodes, err := h.Repo.FindAll()
+	existingNodes, err := h.Service.ListNodes()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get existing nodes"})
 		return
@@ -121,12 +119,10 @@ func (h *NodeHandler) ImportNode(c *gin.Context) {
 		}
 	}
 
-	// Store original name in Rename field
 	node.Rename = originalName
-	// Update node name
 	node.Name = newName
 
-	if err := h.Repo.Create(node); err != nil {
+	if err := h.Service.CreateNode(node); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save node: " + err.Error()})
 		return
 	}
@@ -142,7 +138,7 @@ func (h *NodeHandler) ExportNode(c *gin.Context) {
 		return
 	}
 
-	node, err := h.Repo.FindByID(uint(id))
+	node, err := h.Service.GetNodeByID(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Node not found"})
 		return
