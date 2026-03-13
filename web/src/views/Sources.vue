@@ -16,15 +16,15 @@
       </template>
 
       <el-table :data="sources" stripe style="width: 100%">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" label="名称" min-width="150" />
-        <el-table-column prop="url" label="订阅链接" min-width="250" show-overflow-tooltip />
-        <el-table-column label="状态" width="80">
+        <el-table-column prop="id" label="ID" width="40" />
+        <el-table-column prop="name" label="名称" min-width="100" />
+        <el-table-column prop="url" label="订阅链接" min-width="200" show-overflow-tooltip />
+        <el-table-column label="状态" width="70">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="handleToggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column label="同步模式" width="120">
+        <el-table-column label="同步模式" width="80">
           <template #default="{ row }">
             <el-tag :type="getSyncModeType(row.sync_mode)">
               {{ getSyncModeText(row.sync_mode) }}
@@ -36,15 +36,15 @@
             {{ row.update_interval }}小时
           </template>
         </el-table-column>
-        <el-table-column label="最后同步" width="160">
+        <el-table-column label="最后同步" width="120">
           <template #default="{ row }">
             <span v-if="row.last_sync">{{ formatTime(row.last_sync) }}</span>
             <span v-else style="color: #909399;">未同步</span>
           </template>
         </el-table-column>
-        <el-table-column label="节点标签" width="100">
+        <el-table-column label="节点过滤" width="180">
           <template #default="{ row }">
-            <el-tag v-if="row.node_tag" size="small" type="info">{{ row.node_tag }}</el-tag>
+            <el-tag v-if="row.node_filter" size="small" type="warning" style="max-width: 130px; overflow: hidden; text-overflow: ellipsis;">{{ row.node_filter }}</el-tag>
             <span v-else style="color: #909399;">-</span>
           </template>
         </el-table-column>
@@ -69,10 +69,13 @@
         <el-form-item label="订阅链接" prop="url">
           <el-input v-model="sourceForm.url" placeholder="请输入订阅链接" />
         </el-form-item>
-        <el-form-item label="节点标签" prop="node_tag">
-          <el-input v-model="sourceForm.node_tag" placeholder="可选，用于标识节点来源" />
+        <el-form-item label="节点过滤" prop="node_filter">
+          <el-input v-model="sourceForm.node_filter" placeholder="输入过滤词，多个用英文逗号分割" style="width: 100%;" />
           <div style="color: #909399; font-size: 12px; margin-top: 5px;">
-            留空则使用订阅源名称作为标签
+            <div>过滤词使用说明：</div>
+            <div>1. 多个过滤词用英文逗号分割</div>
+            <div>2. 订阅时会排除包含过滤词的节点</div>
+            <div>3. 留空则不进行过滤</div>
           </div>
         </el-form-item>
         <el-form-item label="同步模式" prop="sync_mode">
@@ -145,7 +148,7 @@ const sourceForm = ref({
   url: '',
   enabled: true,
   update_interval: 24,
-  node_tag: '',
+  node_filter: '',
   sync_mode: 'append'
 })
 
@@ -201,7 +204,7 @@ const showCreateDialog = () => {
     url: '',
     enabled: true,
     update_interval: 24,
-    node_tag: '',
+    node_filter: '',
     sync_mode: 'append'
   }
   formDialogVisible.value = true
@@ -216,7 +219,7 @@ const handleEdit = (row) => {
     url: row.url,
     enabled: row.enabled,
     update_interval: row.update_interval,
-    node_tag: row.node_tag || '',
+    node_filter: row.node_filter || '',
     sync_mode: row.sync_mode || 'append'
   }
   formDialogVisible.value = true
@@ -262,7 +265,7 @@ const handleSave = async () => {
       url: sourceForm.value.url,
       enabled: sourceForm.value.enabled,
       updateInterval: sourceForm.value.update_interval,
-      nodeTag: sourceForm.value.node_tag,
+      nodeFilter: sourceForm.value.node_filter,
       syncMode: sourceForm.value.sync_mode
     }
 
@@ -359,6 +362,10 @@ onMounted(() => {
 
 :deep(.el-table) {
   border: none;
+}
+
+:deep(.el-table .cell) {
+  padding: 0 3px !important;
 }
 
 :deep(.el-table__header-wrapper) {

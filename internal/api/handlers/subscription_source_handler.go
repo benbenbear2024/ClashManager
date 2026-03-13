@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -52,9 +53,12 @@ func (h *SubscriptionSourceHandler) GetSource(c *gin.Context) {
 
 func (h *SubscriptionSourceHandler) CreateSource(c *gin.Context) {
 	var req struct {
-		Name     string `json:"name" binding:"required"`
-		URL      string `json:"url" binding:"required,url"`
-		SyncMode string `json:"syncMode"`
+		Name           string `json:"name" binding:"required"`
+		URL            string `json:"url" binding:"required,url"`
+		NodeFilter     string `json:"nodeFilter"`
+		SyncMode       string `json:"syncMode"`
+		Enabled        bool   `json:"enabled"`
+		UpdateInterval int    `json:"updateInterval"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -63,9 +67,12 @@ func (h *SubscriptionSourceHandler) CreateSource(c *gin.Context) {
 	}
 
 	source := &service.SubscriptionSource{
-		Name:     req.Name,
-		URL:      req.URL,
-		SyncMode: req.SyncMode,
+		Name:           req.Name,
+		URL:            req.URL,
+		NodeFilter:     req.NodeFilter,
+		SyncMode:       req.SyncMode,
+		Enabled:        req.Enabled,
+		UpdateInterval: req.UpdateInterval,
 	}
 
 	if source.SyncMode == "" {
@@ -89,9 +96,12 @@ func (h *SubscriptionSourceHandler) UpdateSource(c *gin.Context) {
 	}
 
 	var req struct {
-		Name     string `json:"name"`
-		URL      string `json:"url" binding:"required,url"`
-		SyncMode string `json:"syncMode"`
+		Name           string `json:"name"`
+		URL            string `json:"url" binding:"required,url"`
+		NodeFilter     string `json:"nodeFilter"`
+		SyncMode       string `json:"syncMode"`
+		Enabled        bool   `json:"enabled"`
+		UpdateInterval int    `json:"updateInterval"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -100,9 +110,12 @@ func (h *SubscriptionSourceHandler) UpdateSource(c *gin.Context) {
 	}
 
 	source := &service.SubscriptionSource{
-		Name:     req.Name,
-		URL:      req.URL,
-		SyncMode: req.SyncMode,
+		Name:           req.Name,
+		URL:            req.URL,
+		NodeFilter:     req.NodeFilter,
+		SyncMode:       req.SyncMode,
+		Enabled:        req.Enabled,
+		UpdateInterval: req.UpdateInterval,
 	}
 
 	if err := h.Service.UpdateSource(idUint, source); err != nil {
@@ -137,13 +150,15 @@ func (h *SubscriptionSourceHandler) SyncSource(c *gin.Context) {
 		return
 	}
 
-	if err := h.Service.SyncSource(idUint); err != nil {
+	nodesCount, err := h.Service.SyncSource(idUint)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync source: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Sync completed successfully",
+		"message":    "Sync completed successfully",
+		"nodesCount": nodesCount,
 	})
 }
 
@@ -157,11 +172,61 @@ func (h *SubscriptionSourceHandler) TestSource(c *gin.Context) {
 		return
 	}
 
-	nodes, err := service.ParseSubscription(req.URL)
+	// 1. 获取订阅内容
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(req.URL)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"error":   err.Error(),
+			"error":   fmt.Sprintf("无法访问订阅链接: %v", err),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// 2. 检查HTTP状态码
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"error":   fmt.Sprintf("订阅链接返回错误状态码: %d", resp.StatusCode),
+		})
+		return
+	}
+
+	// 3. 读取响应内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"error":   fmt.Sprintf("读取订阅内容失败: %v", err),
+		})
+		return
+	}
+
+	content := string(body)
+	if len(content) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"error":   "订阅内容为空",
+		})
+		return
+	}
+
+	// 4. 解析订阅内容
+	nodes, err := service.ParseSubscription(content)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"error":   fmt.Sprintf("解析订阅内容失败: %v", err),
+		})
+		return
+	}
+
+	// 5. 检查是否解析到节点
+	if len(nodes) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"error":   "未解析到任何节点，请检查订阅链接内容格式",
 		})
 		return
 	}

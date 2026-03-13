@@ -1,9 +1,9 @@
 package service
 
 import (
-	"fmt"
 	"clash-manager/internal/config"
 	"clash-manager/internal/model"
+	"fmt"
 )
 
 type NodeService struct{}
@@ -37,6 +37,7 @@ func (s *NodeService) ListNodes() ([]model.Node, error) {
 			Path:     proxy.Path,
 			Host:     proxy.Host,
 			ALPN:     proxy.ALPN,
+			Rename:   proxy.Rename,
 		}
 		nodes = append(nodes, node)
 	}
@@ -66,6 +67,7 @@ func (s *NodeService) CreateNode(node *model.Node) error {
 		Path:     node.Path,
 		Host:     node.Host,
 		ALPN:     node.ALPN,
+		Rename:   node.Rename,
 	}
 
 	cfg.Proxies = append(cfg.Proxies, proxy)
@@ -103,6 +105,7 @@ func (s *NodeService) UpdateNode(id uint, node *model.Node) error {
 	proxy.Path = node.Path
 	proxy.Host = node.Host
 	proxy.ALPN = node.ALPN
+	proxy.Rename = node.Rename
 
 	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %v", err)
@@ -158,6 +161,7 @@ func (s *NodeService) GetNodeByID(id uint) (*model.Node, error) {
 		Path:     proxy.Path,
 		Host:     proxy.Host,
 		ALPN:     proxy.ALPN,
+		Rename:   proxy.Rename,
 	}
 
 	return node, nil

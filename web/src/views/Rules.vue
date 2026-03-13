@@ -21,7 +21,7 @@
         <div class="filter-left">
           <el-input
             v-model="searchKeyword"
-            placeholder="搜索匹配内容、目标或备注"
+            placeholder="搜索匹配内容或目标"
             clearable
             class="search-input"
             @clear="handleSearchChange"
@@ -44,6 +44,7 @@
             <el-option label="DOMAIN" value="DOMAIN" />
             <el-option label="DOMAIN-KEYWORD" value="DOMAIN-KEYWORD" />
             <el-option label="IP-CIDR" value="IP-CIDR" />
+            <el-option label="SRC-IP-CIDR" value="SRC-IP-CIDR" />
             <el-option label="GEOIP" value="GEOIP" />
             <el-option label="MATCH" value="MATCH" />
           </el-select>
@@ -92,23 +93,6 @@
             </el-option-group>
           </el-select>
 
-          <el-select
-            v-model="filterTag"
-            placeholder="标签"
-            clearable
-            class="filter-select"
-            @change="handleFilterTagChange"
-            @clear="handleFilterTagClear"
-            filterable
-          >
-            <el-option
-              v-for="tag in availableTags"
-              :key="tag"
-              :label="tag"
-              :value="tag"
-            />
-          </el-select>
-
           <el-button @click="resetFilter" :icon="RefreshLeft">重置</el-button>
         </div>
         <div class="filter-right">
@@ -118,11 +102,6 @@
 
       <el-table :data="displayRules" stripe class="rules-table" v-loading="loading">
         <el-table-column prop="id" label="ID" min-width="60" />
-        <el-table-column prop="priority" label="序号" min-width="70">
-          <template #default="{ row }">
-            <span class="priority-badge">{{ row.priority ?? 0 }}</span>
-          </template>
-        </el-table-column>
         <el-table-column prop="type" label="规则类型" min-width="140">
           <template #default="{ row }">
             <el-tag :type="getTypeTagType(row.type)" size="small">{{ row.type }}</el-tag>
@@ -162,16 +141,9 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="tag" label="标签" min-width="90">
+        <el-table-column label="备注" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag v-if="row.tag" size="small" class="rule-tag">{{ row.tag }}</el-tag>
-            <span v-else class="text-muted">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="创建时间" min-width="160">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
+            <span v-if="getNodeRemark(row)">{{ getNodeRemark(row) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" min-width="150" fixed="right">
@@ -205,16 +177,13 @@
     <!-- 新增/编辑规则对话框 -->
     <el-dialog v-model="formDialogVisible" :title="isEdit ? '编辑规则' : '新增规则'" width="520px" class="rule-dialog">
       <el-form :model="ruleForm" label-width="110px" class="rule-form">
-        <el-form-item label="序号">
-          <el-input-number v-model="ruleForm.Priority" :min="0" :max="9999" placeholder="数字越小优先级越高" class="form-input" />
-          <div class="form-hint">数字越小优先级越高，0为最高优先级</div>
-        </el-form-item>
         <el-form-item label="规则类型">
           <el-select v-model="ruleForm.Type" placeholder="请选择规则类型" class="form-input">
             <el-option label="DOMAIN-SUFFIX - 域名后缀匹配" value="DOMAIN-SUFFIX" />
             <el-option label="DOMAIN - 完整域名匹配" value="DOMAIN" />
             <el-option label="DOMAIN-KEYWORD - 域名关键字匹配" value="DOMAIN-KEYWORD" />
             <el-option label="IP-CIDR - IP段匹配" value="IP-CIDR" />
+            <el-option label="SRC-IP-CIDR - 源IP段匹配" value="SRC-IP-CIDR" />
             <el-option label="GEOIP - 地理位置匹配" value="GEOIP" />
             <el-option label="MATCH - 全匹配（默认规则）" value="MATCH" />
           </el-select>
@@ -253,18 +222,6 @@
               </el-option>
             </el-option-group>
           </el-select>
-        </el-form-item>
-        <el-form-item label="标签">
-          <el-input v-model="ruleForm.Tag" placeholder="输入标签（可选）" class="form-input" clearable />
-          <div class="form-hint">用于分类管理规则，不会生成到配置文件中</div>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="ruleForm.Remark" placeholder="可选，用于记录规则用途" maxlength="200" show-word-limit class="form-input" />
-          <div class="form-hint">备注仅用于展示，不会生成到配置文件中</div>
-        </el-form-item>
-        <el-form-item label="No Resolve">
-          <el-switch v-model="ruleForm.NoResolve" />
-          <span class="switch-label">不反查域名</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -328,12 +285,11 @@ import {
   Delete,
   UploadFilled
 } from '@element-plus/icons-vue'
-import { getRules, createRule, updateRule, deleteRule, importRules, getTags } from '@/api/rules'
+import { getRules, createRule, updateRule, deleteRule, importRules } from '@/api/rules'
 import { getNodes } from '@/api/nodes'
 
 const rules = ref([])
 const nodes = ref([])
-const availableTags = ref([])
 const formDialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
@@ -348,11 +304,7 @@ const ruleForm = ref({
   Type: 'DOMAIN-SUFFIX',
   Payload: '',
   Target: 'PROXY',
-  TargetType: '',
-  Priority: 0,
-  NoResolve: false,
-  Tag: '',
-  Remark: ''
+  TargetType: ''
 })
 
 // 解析目标显示名称
@@ -361,19 +313,34 @@ const getTargetDisplayName = (row) => {
   return row.target
 }
 
+// 获取节点备注（rename）
+const getNodeRemark = (row) => {
+  // 后端返回的是 targetType（驼峰命名）
+  const targetType = row.targetType || row.target_type
+  if (targetType !== 'node') {
+    return ''
+  }
+  // 查找节点
+  const node = nodes.value.find(n => n.name === row.target)
+  return node?.rename || ''
+}
+
 // 搜索和过滤
 const searchKeyword = ref('')
 const filterType = ref('')
 const filterTarget = ref('')
-const filterTag = ref('')
 
 // 分页相关
 const currentPage = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
 
-// 计算属性：显示的规则（直接使用后端返回的数据）
-const displayRules = computed(() => rules.value)
+// 计算属性：显示的规则（本地分页）
+const displayRules = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return rules.value.slice(start, end)
+})
 
 // 获取规则类型标签颜色
 const getTypeTagType = (type) => {
@@ -382,23 +349,11 @@ const getTypeTagType = (type) => {
     'DOMAIN-SUFFIX': 'success',
     'DOMAIN-KEYWORD': 'warning',
     'IP-CIDR': 'info',
+    'SRC-IP-CIDR': 'success',
     'GEOIP': 'primary',
     'MATCH': 'danger'
   }
   return typeMap[type] || ''
-}
-
-// 格式化日期时间
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
 }
 
 const loadRules = async () => {
@@ -433,11 +388,6 @@ const loadRules = async () => {
       }
     }
 
-    // 标签过滤
-    if (filterTag.value) {
-      params.tag = filterTag.value
-    }
-
     const result = await getRules(params)
     rules.value = result.rules || []
     total.value = result.total || 0
@@ -468,7 +418,7 @@ const handleTargetChange = (value) => {
     // Built-in target (PROXY, DIRECT, REJECT)
     ruleForm.value.TargetType = 'builtin'
   }
-  // Target value is kept as the select option value (node:ID:Name or group:ID:Name or builtin value)
+  // Target value is kept as select option value (node:ID:Name or group:ID:Name or builtin value)
   ruleForm.value.Target = value
 }
 
@@ -479,11 +429,7 @@ const showCreateDialog = async () => {
     Type: 'DOMAIN-SUFFIX',
     Payload: '',
     Target: 'PROXY',
-    TargetType: 'builtin',
-    Priority: 0,
-    NoResolve: false,
-    Tag: '',
-    Remark: ''
+    TargetType: 'builtin'
   }
   await loadNodes()
   formDialogVisible.value = true
@@ -507,11 +453,7 @@ const handleEdit = async (row) => {
     Type: row.type,
     Payload: row.payload,
     Target: targetValue,
-    TargetType: row.target_type || 'builtin', // Default to builtin for backward compatibility
-    Priority: row.priority ?? 0,
-    NoResolve: row.no_resolve,
-    Tag: row.tag || '',
-    Remark: row.remark || ''
+    TargetType: row.target_type || 'builtin' // Default to builtin for backward compatibility
   }
   await loadNodes()
   formDialogVisible.value = true
@@ -549,11 +491,7 @@ const handleSave = async () => {
     payload: ruleForm.value.Payload,
     target: targetValue,
     target_id: targetID,
-    target_type: targetType,
-    priority: ruleForm.value.Priority ?? 0,
-    no_resolve: ruleForm.value.NoResolve,
-    tag: ruleForm.value.Tag ? ruleForm.value.Tag.trim() : '',
-    remark: ruleForm.value.Remark || ''
+    target_type: targetType
   }
   if (isEdit.value) {
     await updateRule(editId.value, data)
@@ -563,10 +501,9 @@ const handleSave = async () => {
     ElMessage.success('创建成功')
   }
   formDialogVisible.value = false
-  // 重新加载节点和策略组数据，确保规则列表能正确显示目标名称
+  // 重新加载节点和策略组数据，确保规则列表能正确显示目标名称和备注
   await loadNodes()
-  loadRules()
-  loadAvailableTags() // Refresh available tags
+  await loadRules()
 }
 
 const handleDelete = async (row) => {
@@ -589,7 +526,6 @@ const handleFilterTypeChange = () => {
 }
 
 const handleFilterTypeClear = () => {
-  filterType.value = ''
   currentPage.value = 1
   loadRules()
 }
@@ -600,18 +536,6 @@ const handleFilterTargetChange = () => {
 }
 
 const handleFilterTargetClear = () => {
-  filterTarget.value = ''
-  currentPage.value = 1
-  loadRules()
-}
-
-const handleFilterTagChange = () => {
-  currentPage.value = 1
-  loadRules()
-}
-
-const handleFilterTagClear = () => {
-  filterTag.value = ''
   currentPage.value = 1
   loadRules()
 }
@@ -620,7 +544,6 @@ const resetFilter = () => {
   searchKeyword.value = ''
   filterType.value = ''
   filterTarget.value = ''
-  filterTag.value = ''
   currentPage.value = 1
   loadRules()
 }
@@ -636,9 +559,7 @@ const handlePageChange = (page) => {
   loadRules()
 }
 
-// 导入相关函数
 const showImportDialog = () => {
-  importContent.value = ''
   importDialogVisible.value = true
 }
 
@@ -663,7 +584,19 @@ const handleImport = async () => {
   importing.value = true
   try {
     const result = await importRules(importContent.value)
-    ElMessage.success(`成功导入 ${result.count} 条规则`)
+    const importCount = result.import_count || 0
+    const updateCount = result.update_count || 0
+    let message = ''
+    if (importCount > 0 && updateCount > 0) {
+      message = `成功导入 ${importCount} 条规则，更新 ${updateCount} 条规则`
+    } else if (importCount > 0) {
+      message = `成功导入 ${importCount} 条规则`
+    } else if (updateCount > 0) {
+      message = `成功更新 ${updateCount} 条规则`
+    } else {
+      message = '没有导入任何规则'
+    }
+    ElMessage.success(message)
     importDialogVisible.value = false
     importContent.value = ''
     // 重新加载节点数据，确保规则列表能正确显示目标名称
@@ -676,20 +609,10 @@ const handleImport = async () => {
   }
 }
 
-const loadAvailableTags = async () => {
-  try {
-    const result = await getTags()
-    availableTags.value = result.tags || []
-  } catch (error) {
-    console.error('Load tags error:', error)
-  }
-}
-
 onMounted(async () => {
   // 先加载节点数据，确保规则列表能正确显示目标名称
   await loadNodes()
   loadRules()
-  loadAvailableTags()
 })
 </script>
 
@@ -705,20 +628,6 @@ onMounted(async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-:deep(.rules-card .el-card__header) {
-  padding: 20px 24px;
-  border-bottom: 1px solid #f0f2f5;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-}
-
-:deep(.rules-card .el-card__body) {
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 .card-header {
@@ -753,48 +662,137 @@ onMounted(async () => {
   gap: 10px;
 }
 
-/* 过滤区域 */
 .filter-section {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #f0f2f5;
+  align-items: center;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .filter-left {
   display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.search-input {
-  width: 280px;
-}
-
-.filter-select {
-  width: 180px;
-}
-
-.filter-select-wide {
-  width: 200px;
 }
 
 .filter-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+}
+
+.search-input {
+  width: 250px;
+}
+
+.filter-select {
+  width: 150px;
 }
 
 .total-count {
-  color: #606266;
+  color: #909399;
   font-size: 14px;
+}
+
+.rules-table {
+  flex: 1;
+  height: calc(100vh - 280px);
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f0f2f5;
+  border-radius: 4px;
+  font-size: 12px;
   font-weight: 500;
 }
 
-/* 下拉选项样式 */
+.target-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.target-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.target-tag.proxy {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.target-tag.direct {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
+}
+
+.target-tag.reject {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: #fff;
+}
+
+.target-tag.builtin {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.target-tag.node {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: #fff;
+}
+
+.target-tag.group {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: #fff;
+}
+
+.text-muted {
+  color: #909399;
+}
+
+.pagination-section {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  border-top: 1px solid #e9ecef;
+}
+
+.rule-dialog {
+  border-radius: 16px;
+}
+
+.rule-form {
+  padding: 10px 0;
+}
+
+.form-input {
+  width: 100%;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.switch-label {
+  margin-left: 8px;
+  color: #606266;
+}
+
 .option-content {
   display: flex;
   align-items: center;
@@ -805,245 +803,99 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
 }
 
 .option-name {
   flex: 1;
-  color: #303133;
-  font-size: 14px;
-  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .option-type-tag {
-  font-size: 11px;
-  padding: 2px 6px;
-  height: 18px;
-  line-height: 14px;
-  background: #f0f2f5;
-  border: 1px solid #dcdfe6;
-  color: #909399;
+  flex-shrink: 0;
 }
 
 .option-text {
-  color: #606266;
-  font-size: 13px;
-}
-
-/* 表格样式 */
-.rules-table {
-  flex: 1;
-}
-
-:deep(.rules-table.el-table) {
-  border: none;
-}
-
-:deep(.rules-table .el-table__header-wrapper) {
-  background: #fafafa;
-}
-
-:deep(.rules-table .el-table__th) {
-  background: #fafafa;
-  color: #606266;
-  font-weight: 500;
-  font-size: 13px;
-}
-
-:deep(.rules-table .el-table__body tr:hover > td) {
-  background: #f5f7fa;
-}
-
-.priority-badge {
-  display: inline-block;
-  min-width: 24px;
-  text-align: center;
-  padding: 2px 8px;
-  background: #f0f2f5;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* 目标列样式 */
-.target-cell {
-  display: flex;
-  align-items: center;
-}
-
-.target-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* 固定出口标签 */
-.target-tag.proxy {
-  background: linear-gradient(135deg, #e1f3ff 0%, #d4e9ff 100%);
-  color: #409eff;
-  border: 1px solid #b3d8ff;
-}
-
-.target-tag.direct {
-  background: linear-gradient(135deg, #e1f9e8 0%, #d4f1e4 100%);
-  color: #67c23a;
-  border: 1px solid #b3e19d;
-}
-
-.target-tag.reject {
-  background: linear-gradient(135deg, #fee 0%, #fde2e2 100%);
-  color: #f56c6c;
-  border: 1px solid #fbc4c4;
-}
-
-/* 其他 builtin 类型 */
-.target-tag.builtin {
-  background: linear-gradient(135deg, #f4f4f5 0%, #e8e8e9 100%);
-  color: #606266;
-  border: 1px solid #dcdfe6;
-}
-
-/* 代理节点标签 */
-.target-tag.node {
-  background: linear-gradient(135deg, #f4f4f5 0%, #e8e8e9 100%);
-  color: #606266;
-  border: 1px solid #dcdfe6;
-}
-
-.target-tag.node .el-icon {
-  font-size: 13px;
-  color: #909399;
-}
-
-.target-tag.node span {
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 代理组标签 */
-.target-tag.group {
-  background: linear-gradient(135deg, #fef8ec 0%, #fdf1e0 100%);
-  color: #e6a23c;
-  border: 1px solid #f5dabc;
-}
-
-.target-tag.group .el-icon {
-  font-size: 13px;
-  color: #e6a23c;
-}
-
-.target-tag.group span {
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 规则标签样式 */
-.rule-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  height: 20px;
-  line-height: 16px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #f0f2f5 0%, #e8eaf0 100%);
-  color: #606266;
-  border: 1px solid #dcdfe6;
-}
-
-.text-muted {
-  color: #c0c4cc;
-  font-size: 12px;
-}
-
-/* 分页 */
-.pagination-section {
-  display: flex;
-  justify-content: flex-end;
-  padding: 16px 24px;
-  border-top: 1px solid #f0f2f5;
-}
-
-/* 对话框样式 */
-.rule-dialog :deep(.el-dialog__body) {
-  padding: 20px 24px;
-}
-
-.rule-form .form-input {
-  width: 100%;
-}
-
-.rule-form .form-hint {
   color: #909399;
   font-size: 12px;
-  margin-top: 6px;
-  line-height: 1.5;
 }
 
-.rule-form :deep(.el-input-group__append .el-select) {
-  width: 100%;
-}
-
-:deep(.el-select .option-desc) {
+.option-desc {
   color: #909399;
   font-size: 12px;
-  margin-left: 12px;
-  float: right;
 }
 
-.rule-form :deep(.el-form-item__label) {
-  font-weight: 500;
-  color: #606266;
+.import-dialog {
+  border-radius: 16px;
 }
 
-.rule-form :deep(.el-switch) {
-  margin-right: 12px;
+.import-form {
+  padding: 10px 0;
 }
 
-.switch-label {
-  color: #909399;
-  font-size: 13px;
-}
-
-/* 导入对话框 */
-.import-dialog :deep(.el-dialog__body) {
-  padding: 20px 24px;
-}
-
-.import-form :deep(.el-upload-dragger) {
-  padding: 30px;
+.import-textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
 }
 
 .upload-icon {
   font-size: 48px;
-  color: #667eea;
+  color: #409eff;
   margin-bottom: 16px;
 }
 
 .upload-text {
   font-size: 14px;
   color: #606266;
-  margin-bottom: 8px;
 }
 
 .upload-tip {
   font-size: 12px;
   color: #909399;
+  margin-top: 8px;
 }
 
-.import-textarea {
-  width: 100%;
+:deep(.el-card__body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.import-textarea :deep(.el-textarea__inner) {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 12px;
-  line-height: 1.6;
+:deep(.el-table) {
+  border: none;
+}
+
+:deep(.el-table th) {
+  background: #fafafa;
+  color: #606266;
+  font-weight: 500;
+}
+
+:deep(.el-dialog__header) {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+:deep(.el-dialog__body) {
+  padding: 24px;
+}
+
+:deep(.el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #e9ecef;
+}
+
+:deep(.el-upload-dragger) {
+  padding: 40px 20px;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+:deep(.el-upload-dragger:hover) {
+  border-color: #409eff;
+  background: #f0f7ff;
 }
 </style>

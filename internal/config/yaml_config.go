@@ -22,7 +22,7 @@ type MihomoConfig struct {
 	Secret             string                 `yaml:"secret,omitempty"`
 	Tun                map[string]interface{} `yaml:"tun,omitempty"`
 	Experimental       map[string]interface{} `yaml:"experimental,omitempty"`
-	DNS                map[string]interface{} `yaml:"dns,omitempty"`
+	DNS                DNSConfig              `yaml:"dns,omitempty"`
 	StoreSelected      bool                   `yaml:"store-selected,omitempty"`
 	FindProcessMode    string                 `yaml:"find-process-mode,omitempty"`
 	Proxies            []ProxyConfig          `yaml:"proxies,omitempty"`
@@ -50,6 +50,7 @@ type ProxyConfig struct {
 	Address  string `yaml:"address,omitempty"`
 	Delay    string `yaml:"delay,omitempty"`
 	URL      string `yaml:"url,omitempty"`
+	Rename   string `yaml:"rename,omitempty"`
 }
 
 type ProxyGroupConfig struct {
@@ -58,6 +59,16 @@ type ProxyGroupConfig struct {
 	Proxies  []string `yaml:"proxies,omitempty"`
 	URL      string   `yaml:"url,omitempty"`
 	Interval int      `yaml:"interval,omitempty"`
+}
+
+type DNSConfig struct {
+	Enable            bool     `yaml:"enable"`
+	Listen            string   `yaml:"listen"`
+	EnhancedMode      string   `yaml:"enhanced-mode"`
+	Nameserver        []string `yaml:"nameserver"`
+	Fallback          []string `yaml:"fallback"`
+	DefaultNameserver []string `yaml:"default-nameserver"`
+	FakeIPFilter      []string `yaml:"fake-ip-filter"`
 }
 
 func GetConfigPath() string {
@@ -91,6 +102,10 @@ func SaveConfig(config *MihomoConfig) error {
 
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	if err := CopyConfigToMihomo(); err != nil {
+		return fmt.Errorf("failed to copy config to Mihomo: %v", err)
 	}
 
 	return nil

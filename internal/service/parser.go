@@ -2,12 +2,8 @@ package service
 
 import (
 	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"math/rand"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -16,787 +12,597 @@ import (
 	"clash-manager/internal/model"
 )
 
-// ParseLink parses proxy links like ss://, vmess://, trojan://, vless://, socks5://, hysteria2:// into a Node model
-func ParseLink(link string) (*model.Node, error) {
-	link = strings.TrimSpace(link)
-	if strings.HasPrefix(link, "ss://") {
-		return parseSS(link)
+// 生成随机字符串
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	result := make([]byte, length)
+	for i := range result {
+		result[i] = charset[seededRand.Intn(len(charset))]
 	}
-	if strings.HasPrefix(link, "vmess://") {
-		return parseVmess(link)
-	}
-	if strings.HasPrefix(link, "trojan://") {
-		return parseTrojan(link)
-	}
-	if strings.HasPrefix(link, "vless://") {
-		return parseVless(link)
-	}
-	if strings.HasPrefix(link, "socks5://") {
-		return parseSocks5(link)
-	}
-	if strings.HasPrefix(link, "hysteria2://") || strings.HasPrefix(link, "hysteria://") {
-		return parseHysteria2(link)
-	}
-	return nil, errors.New("unsupported protocol")
+	return string(result)
 }
 
-func parseSS(link string) (*model.Node, error) {
-	// ss://<base64(method:password@server:port)>#<tag>
-	// OR ss://<base64(method:password)>@<server>:<port>#<tag>
+func ParseLink(link string) (*model.Node, error) {
+	link = strings.TrimSpace(link)
+	if link == "" {
+		return nil, fmt.Errorf("empty link")
+	}
 
-	u, err := url.Parse(link)
+	if strings.HasPrefix(link, "ss://") {
+		return parseShadowsocksLink(link)
+	} else if strings.HasPrefix(link, "vmess://") {
+		return parseVMessLink(link)
+	} else if strings.HasPrefix(link, "trojan://") {
+		return parseTrojanLink(link)
+	} else if strings.HasPrefix(link, "vless://") {
+		return parseVLESSLink(link)
+	} else if strings.HasPrefix(link, "socks5://") {
+		return parseSOCKS5Link(link)
+	} else if strings.HasPrefix(link, "hysteria2://") || strings.HasPrefix(link, "hy2://") {
+		return parseHysteria2Link(link)
+	} else if strings.HasPrefix(link, "hysteria://") {
+		return parseHysteriaLink(link)
+	} else {
+		// 尝试解析自定义格式
+		return parseCustomFormat(link)
+	}
+}
+
+// parseCustomFormat 解析自定义格式：server/port/username/password/date
+// 支持两种分隔符：/ 或 |
+// 格式示例：
+//
+//	192.168.1.100/1080/user1/pass123/2025-12-31
+//	198.51.100.77|10808|bob|builder|2026-03-01
+func parseCustomFormat(link string) (*model.Node, error) {
+	// 确定分隔符 - 优先检查 | 分隔符
+	var parts []string
+	if strings.Contains(link, "|") {
+		parts = strings.Split(link, "|")
+	} else if strings.Count(link, "/") >= 3 {
+		// 只有当至少有3个 / 时才认为是自定义格式（server/port/user/pass）
+		parts = strings.Split(link, "/")
+	} else {
+		// 尝试作为标准 socks5 URL 解析
+		return parseSOCKS5Link("socks5://" + link)
+	}
+
+	if len(parts) < 4 {
+		return nil, fmt.Errorf("invalid custom format, need at least 4 parts: server, port, username, password")
+	}
+
+	server := strings.TrimSpace(parts[0])
+	port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid port: %v", err)
+	}
+	username := strings.TrimSpace(parts[2])
+	password := strings.TrimSpace(parts[3])
+
+	// 确定节点名称：如果第5部分存在且不为空，则使用它；否则自动生成
+	var name string
+	if len(parts) >= 5 && strings.TrimSpace(parts[4]) != "" {
+		name = strings.TrimSpace(parts[4])
+	} else {
+		// 生成节点名称：SK5_月份日期_5位随机数
+		now := time.Now()
+		name = fmt.Sprintf("SK5_%02d%02d_%s", now.Month(), now.Day(), generateRandomString(5))
 	}
 
-	node := &model.Node{Type: "ss"}
-	node.Name = u.Fragment
-	if node.Name == "" {
-		node.Name = "Imported SS"
+	node := &model.Node{
+		Type:     "socks5",
+		Server:   server,
+		Port:     port,
+		Username: username,
+		Password: password,
+		Name:     name,
+		Rename:   server, // 将服务器地址保存到 Rename 字段
 	}
 
-	// Case 1: user info is base64 encoded string "method:password"
-	// and host is plain in URL
-	if u.User.String() != "" {
-		// This is actually "method:password" encoded or plain?
-		// Standard SIP002: ss://base64(method:password)@hostname:port
-		// But often full block is base64 encoded.
+	return node, nil
+}
 
-		// Check if host is present. If yes, it's likely SIP002
-		node.Server = u.Hostname()
-		port, _ := strconv.Atoi(u.Port())
-		node.Port = port
+func parseShadowsocksLink(link string) (*model.Node, error) {
+	parts := strings.SplitN(link, "://", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid ss link")
+	}
 
-		// Decode user info
-		userInfo := u.User.String()
-		// Try decoding if it looks like base64 (no colon)
-		if !strings.Contains(userInfo, ":") {
-			// Try multiple base64 decodings
-			// 1. RawURLEncoding (no padding) - SIP002 standard
-			if decoded, err := base64.RawURLEncoding.DecodeString(userInfo); err == nil {
-				userInfo = string(decoded)
-			} else if decoded, err := base64.URLEncoding.DecodeString(userInfo); err == nil {
-				// 2. URLEncoding (with padding)
-				userInfo = string(decoded)
-			} else if decoded, err := base64.RawStdEncoding.DecodeString(userInfo); err == nil {
-				// 3. RawStdEncoding (no padding, standard chars)
-				userInfo = string(decoded)
-			} else if decoded, err := base64.StdEncoding.DecodeString(userInfo); err == nil {
-				// 4. StdEncoding (with padding, standard chars)
-				userInfo = string(decoded)
+	var serverInfo, name string
+	if idx := strings.Index(parts[1], "#"); idx != -1 {
+		serverInfo = parts[1][:idx]
+		name = parts[1][idx+1:]
+	} else {
+		serverInfo = parts[1]
+	}
+
+	// 分离 base64 编码部分和服务器地址
+	// SS 链接格式: ss://base64(server:port:method:password)@server:port#name
+	// 或者: ss://base64(method:password)@server:port#name
+	var serverAddr string
+	if atIdx := strings.Index(serverInfo, "@"); atIdx != -1 {
+		serverAddr = serverInfo[atIdx+1:]
+		serverInfo = serverInfo[:atIdx]
+	}
+
+	// 先进行 URL 解码（处理 %3D 等编码字符）
+	serverInfo, _ = url.QueryUnescape(serverInfo)
+
+	// 尝试多种 base64 解码方式
+	var decoded []byte
+	var err error
+
+	// 1. 尝试标准 base64
+	decoded, err = base64.StdEncoding.DecodeString(serverInfo)
+	if err != nil {
+		// 2. 尝试 URL 安全的 base64
+		decoded, err = base64.URLEncoding.DecodeString(serverInfo)
+		if err != nil {
+			// 3. 尝试 RawStdEncoding（无填充）
+			decoded, err = base64.RawStdEncoding.DecodeString(serverInfo)
+			if err != nil {
+				// 4. 尝试 RawURLEncoding（无填充的 URL 安全）
+				decoded, err = base64.RawURLEncoding.DecodeString(serverInfo)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode ss link: %v", err)
+				}
 			}
 		}
+	}
 
-		parts := strings.SplitN(userInfo, ":", 2)
-		if len(parts) == 2 {
-			node.Cipher = parts[0]
-			node.Password = parts[1]
+	// 解析解码后的内容
+	// 格式可能是: method:password 或 server:port:method:password
+	var method, password string
+	decodedStr := string(decoded)
+	
+	// 如果已经有 serverAddr，则 decoded 只包含 method:password
+	if serverAddr != "" {
+		// 从 serverAddr 解析服务器和端口
+		serverParts := strings.SplitN(serverAddr, ":", 2)
+		if len(serverParts) != 2 {
+			return nil, fmt.Errorf("invalid server:port format in URL")
 		}
+		serverAddr = serverParts[0]
+		port, _ := strconv.Atoi(serverParts[1])
+		
+		// decoded 包含 method:password
+		methodPass := strings.SplitN(decodedStr, ":", 2)
+		if len(methodPass) == 2 {
+			method = methodPass[0]
+			password = methodPass[1]
+		} else {
+			method = decodedStr
+		}
+		
+		node := &model.Node{
+			Type:     "ss",
+			Server:   serverAddr,
+			Port:     port,
+			Cipher:   method,
+			Password: password,
+		}
+		
+		if name != "" {
+			decodedName, err := url.QueryUnescape(name)
+			if err == nil {
+				node.Name = decodedName
+			} else {
+				node.Name = name
+			}
+		}
+		
 		return node, nil
 	}
 
-	// Case 2: Everything in host is base64 encoded "method:password@hostname:port" (Legacy)
-	// u.Host might contain the base64 string
-	raw := u.Host
-	if u.Path != "" { // sometimes / is appended
-		raw += u.Path
+	// 旧格式: server:port:method:password 全部在 base64 中
+	infoParts := strings.SplitN(decodedStr, "@", 2)
+	if len(infoParts) != 2 {
+		return nil, fmt.Errorf("invalid ss info format")
 	}
 
-	var decoded []byte
-	var decodeErr error
-	// Try multiple base64 decodings
-	if decoded, decodeErr = base64.RawURLEncoding.DecodeString(raw); decodeErr != nil {
-		if decoded, decodeErr = base64.URLEncoding.DecodeString(raw); decodeErr != nil {
-			if decoded, decodeErr = base64.RawStdEncoding.DecodeString(raw); decodeErr != nil {
-				if decoded, decodeErr = base64.StdEncoding.DecodeString(raw); decodeErr != nil {
-					return nil, decodeErr
-				}
-			}
+	method = infoParts[0]
+	serverAndPort := infoParts[1]
+
+	serverParts := strings.SplitN(serverAndPort, ":", 2)
+	if len(serverParts) != 2 {
+		return nil, fmt.Errorf("invalid server:port format")
+	}
+
+	port, err := strconv.Atoi(serverParts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid port: %v", err)
+	}
+
+	node := &model.Node{
+		Type:     "ss",
+		Server:   serverParts[0],
+		Port:     port,
+		Cipher:   method,
+		Password: "",
+	}
+
+	if name != "" {
+		decodedName, err := url.QueryUnescape(name)
+		if err == nil {
+			node.Name = decodedName
+		} else {
+			node.Name = name
 		}
 	}
-
-	// "method:password@hostname:port"
-	fullStr := string(decoded)
-	parts := strings.Split(fullStr, "@")
-	if len(parts) != 2 {
-		return nil, errors.New("invalid ss format")
-	}
-
-	auth := strings.SplitN(parts[0], ":", 2)
-	if len(auth) != 2 {
-		return nil, errors.New("invalid ss auth")
-	}
-	node.Cipher = auth[0]
-	node.Password = auth[1]
-
-	serverParts := strings.Split(parts[1], ":")
-	if len(serverParts) != 2 {
-		return nil, errors.New("invalid ss server")
-	}
-	node.Server = serverParts[0]
-	node.Port, _ = strconv.Atoi(serverParts[1])
 
 	return node, nil
 }
 
-func parseVmess(link string) (*model.Node, error) {
-	// vmess://<base64(json)>
-	b64 := strings.TrimPrefix(link, "vmess://")
-	decoded, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		decoded, err = base64.RawStdEncoding.DecodeString(b64)
-	}
-	if err != nil {
-		return nil, err
+func parseVMessLink(link string) (*model.Node, error) {
+	parts := strings.SplitN(link, "://", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid vmess link")
 	}
 
-	var vMap map[string]interface{}
-	if err := json.Unmarshal(decoded, &vMap); err != nil {
-		return nil, err
+	decoded, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode vmess link: %v", err)
 	}
 
+	u, err := url.Parse("vmess://" + string(decoded))
+	if err != nil {
+		return nil, fmt.Errorf("invalid vmess url: %v", err)
+	}
+
+	query := u.Query()
+
+	port, _ := strconv.Atoi(u.Port())
 	node := &model.Node{
 		Type:    "vmess",
-		Name:    getString(vMap, "ps"),
-		Server:  getString(vMap, "add"),
-		UUID:    getString(vMap, "id"),
+		Server:  u.Hostname(),
+		Port:    port,
+		UUID:    query.Get("id"),
+		AlterId: "0",
 		Cipher:  "auto",
-		Network: getString(vMap, "net"),
-		Path:    getString(vMap, "path"),
-		Host:    getString(vMap, "host"),
+		Network: query.Get("net"),
+		Path:    query.Get("path"),
+		Host:    query.Get("host"),
+		TLS:     query.Get("tls") == "true",
 	}
 
-	// Port can be string or int in JSON
-	if p, ok := vMap["port"].(float64); ok {
-		node.Port = int(p)
-	} else if pStr, ok := vMap["port"].(string); ok {
-		node.Port, _ = strconv.Atoi(pStr)
-	}
-
-	// Construct extra config for TLS/Network
-	if getString(vMap, "tls") != "" {
-		node.TLS = true
-	}
-
-	// Capture extra fields like alterId into ExtraConfig
-	extra := make(map[string]interface{})
-
-	// alterId (aid) - try different types
-	if v, ok := vMap["aid"]; ok {
-		extra["alterId"] = v // Keep original type (int/string) or convert? Clash usually accepts int.
-		// If it's a string number "0", json.Unmarshal later in generator handles it fine if it fits interface{}
-	}
-
-	if len(extra) > 0 {
-		if b, err := json.Marshal(extra); err == nil {
-			node.ExtraConfig = string(b)
-		}
+	if name := query.Get("ps"); name != "" {
+		node.Name = name
 	}
 
 	return node, nil
 }
 
-func parseTrojan(link string) (*model.Node, error) {
-	// trojan://password@host:port#name
+func parseTrojanLink(link string) (*model.Node, error) {
 	u, err := url.Parse(link)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid trojan url: %v", err)
 	}
 
+	port, _ := strconv.Atoi(u.Port())
 	node := &model.Node{
 		Type:     "trojan",
-		Name:     u.Fragment,
 		Server:   u.Hostname(),
+		Port:     port,
 		Password: u.User.Username(),
-	}
-	if node.Name == "" {
-		node.Name = "Imported Trojan"
-	}
-	node.Port, _ = strconv.Atoi(u.Port())
-
-	// Parse query parameters
-	q := u.Query()
-
-	// Security
-	security := q.Get("security")
-	if security == "tls" {
-		node.TLS = true
+		UUID:     u.User.Username(),
+		Network:  "tcp",
+		TLS:      true,
 	}
 
-	// Host/SNI
-	if sni := q.Get("sni"); sni != "" {
-		node.Host = sni
-	}
-
-	// Network type
-	node.Network = q.Get("type")
-	if node.Network == "" {
-		node.Network = "tcp"
-	}
-
-	// Allow insecure
-	if allowInsecure := q.Get("allowInsecure"); allowInsecure == "1" {
-		node.SkipCert = true
-	}
-
-	// Header type
-	headerType := q.Get("headerType")
-	if headerType != "" {
-		extra := make(map[string]interface{})
-		extra["headerType"] = headerType
-		if b, err := json.Marshal(extra); err == nil {
-			node.ExtraConfig = string(b)
+	if name := u.Fragment; name != "" {
+		decodedName, err := url.QueryUnescape(name)
+		if err == nil {
+			node.Name = decodedName
+		} else {
+			node.Name = name
 		}
 	}
 
 	return node, nil
 }
 
-func parseVless(link string) (*model.Node, error) {
-	// vless://uuid@host:port?params#name
+func parseVLESSLink(link string) (*model.Node, error) {
 	u, err := url.Parse(link)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid vless url: %v", err)
 	}
 
+	query := u.Query()
+
+	port, _ := strconv.Atoi(u.Port())
 	node := &model.Node{
-		Type:   "vless",
-		Name:   u.Fragment,
+		Type:    "vless",
+		Server:  u.Hostname(),
+		Port:    port,
+		UUID:    u.User.Username(),
+		Network: query.Get("type"),
+		Path:    query.Get("path"),
+		Host:    query.Get("host"),
+		TLS:     query.Get("security") == "tls",
+		ALPN:    query.Get("alpn"),
+	}
+
+	if name := u.Fragment; name != "" {
+		decodedName, err := url.QueryUnescape(name)
+		if err == nil {
+			node.Name = decodedName
+		} else {
+			node.Name = name
+		}
+	}
+
+	return node, nil
+}
+
+func parseSOCKS5Link(link string) (*model.Node, error) {
+	u, err := url.Parse(link)
+	if err != nil {
+		return nil, fmt.Errorf("invalid socks5 url: %v", err)
+	}
+
+	port, _ := strconv.Atoi(u.Port())
+	node := &model.Node{
+		Type:   "socks",
 		Server: u.Hostname(),
-		UUID:   u.User.Username(),
-	}
-	if node.Name == "" {
-		node.Name = "Imported VLESS"
-	}
-	node.Port, _ = strconv.Atoi(u.Port())
-
-	// Parse query parameters
-	q := u.Query()
-
-	// Network type
-	node.Network = q.Get("type")
-	if node.Network == "" {
-		node.Network = "tcp"
+		Port:   port,
 	}
 
-	// Security
-	security := q.Get("security")
-	if security == "tls" || security == "reality" {
-		node.TLS = true
-	}
-
-	// Host/SNI
-	if sni := q.Get("sni"); sni != "" {
-		node.Host = sni
-	}
-
-	// Path
-	if path := q.Get("spx"); path != "" {
-		node.Path = path
-	}
-
-	// Reality specific parameters
-	if security == "reality" {
-		extra := make(map[string]interface{})
-		extra["security"] = "reality"
-		if fp := q.Get("fp"); fp != "" {
-			extra["fp"] = fp
+	if u.User != nil {
+		node.Username = u.User.Username()
+		if password, ok := u.User.Password(); ok {
+			node.Password = password
 		}
-		if pbk := q.Get("pbk"); pbk != "" {
-			extra["pbk"] = pbk
-		}
-		if sid := q.Get("sid"); sid != "" {
-			extra["sid"] = sid
-		}
-		if headerType := q.Get("headerType"); headerType != "" {
-			extra["headerType"] = headerType
-		}
-		if len(extra) > 0 {
-			if b, err := json.Marshal(extra); err == nil {
-				node.ExtraConfig = string(b)
-			}
+	}
+
+	if name := u.Fragment; name != "" {
+		decodedName, err := url.QueryUnescape(name)
+		if err == nil {
+			node.Name = decodedName
+		} else {
+			node.Name = name
 		}
 	}
 
 	return node, nil
 }
 
-func parseSocks5(link string) (*model.Node, error) {
-	// socks5://username:password@host:port#name
-	// OR socks5://host|port|user|pass|name (with various delimiters)
-
-	node := &model.Node{
-		Type: "socks5",
-	}
-
-	// Remove the socks5:// prefix
-	content := strings.TrimPrefix(link, "socks5://")
-	content = strings.TrimPrefix(content, "socks5://")
-
-	// Try to parse with delimiters: | , /
-	delimiters := []string{"|", ",", "/"}
-	parsed := false
-	for _, delim := range delimiters {
-		parts := strings.Split(content, delim)
-		if len(parts) >= 4 {
-			node.Server = strings.TrimSpace(parts[0])
-			portStr := strings.TrimSpace(parts[1])
-			node.Port, _ = strconv.Atoi(portStr)
-			node.Username = strings.TrimSpace(parts[2])
-			node.Password = strings.TrimSpace(parts[3])
-			if len(parts) >= 5 && strings.TrimSpace(parts[4]) != "" {
-				node.Name = strings.TrimSpace(parts[4])
-			}
-			parsed = true
-			break
-		}
-	}
-
-	// If not parsed with delimiters, try standard URL format
-	if !parsed {
-		u, err := url.Parse(link)
-		if err != nil {
-			return nil, err
-		}
-
-		node.Name = u.Fragment
-		node.Server = u.Hostname()
-		node.Port, _ = strconv.Atoi(u.Port())
-
-		// Parse user info (username:password)
-		userInfo := u.User.String()
-		if userInfo != "" {
-			parts := strings.SplitN(userInfo, ":", 2)
-			if len(parts) == 2 {
-				node.Username = parts[0]
-				node.Password = parts[1]
-			}
-		}
-
-		// Parse query parameters
-		q := u.Query()
-
-		// UDP support
-		if q.Get("udp") == "true" {
-			node.UDP = true
-		}
-
-		// TLS support
-		if q.Get("tls") == "true" {
-			node.TLS = true
-		}
-
-		// Skip certificate verification
-		if q.Get("skip-cert-verify") == "true" {
-			node.SkipCert = true
-		}
-
-		// Network type
-		node.Network = q.Get("network")
-
-		// Path (for ws/grpc)
-		if path := q.Get("path"); path != "" {
-			node.Path = path
-		}
-
-		// Host/SNI
-		if host := q.Get("host"); host != "" {
-			node.Host = host
-		}
-	}
-
-	// Auto-generate name if empty
-	if node.Name == "" {
-		rand.Seed(time.Now().UnixNano())
-		node.Name = fmt.Sprintf("SOCKS5_%d", rand.Intn(100000))
-	}
-
-	return node, nil
-}
-
-func parseHysteria2(link string) (*model.Node, error) {
-	// hysteria2://password@server:port?params#name
+func parseHysteria2Link(link string) (*model.Node, error) {
 	u, err := url.Parse(link)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid hysteria2 url: %v", err)
 	}
 
+	query := u.Query()
+
+	port, _ := strconv.Atoi(u.Port())
 	node := &model.Node{
 		Type:     "hysteria2",
-		Name:     u.Fragment,
 		Server:   u.Hostname(),
-		Password: u.User.Username(),
-	}
-	if node.Name == "" {
-		node.Name = "Imported Hysteria2"
-	}
-	node.Port, _ = strconv.Atoi(u.Port())
-
-	// Parse query parameters
-	q := u.Query()
-
-	// SNI
-	if sni := q.Get("sni"); sni != "" {
-		node.Host = sni
+		Port:     port,
+		Password: query.Get("password"),
+		TLS:      true,
 	}
 
-	// Skip certificate verification (insecure=1 or skip-cert-verify=true)
-	if insecure := q.Get("insecure"); insecure == "1" {
-		node.SkipCert = true
-	}
-	if q.Get("skip-cert-verify") == "true" {
-		node.SkipCert = true
-	}
-
-	// TLS support
-	if q.Get("tls") == "true" {
-		node.TLS = true
-	}
-
-	// UDP support
-	if q.Get("udp") == "true" {
-		node.UDP = true
-	}
-
-	// Obfuscation type
-	if obfs := q.Get("obfs"); obfs != "" {
-		extra := make(map[string]interface{})
-		extra["obfs"] = obfs
-		if obfsPassword := q.Get("obfs-password"); obfsPassword != "" {
-			extra["obfs-password"] = obfsPassword
-		}
-		if len(extra) > 0 {
-			if b, err := json.Marshal(extra); err == nil {
-				node.ExtraConfig = string(b)
-			}
+	if name := u.Fragment; name != "" {
+		decodedName, err := url.QueryUnescape(name)
+		if err == nil {
+			node.Name = decodedName
+		} else {
+			node.Name = name
 		}
 	}
 
 	return node, nil
 }
 
-func getString(m map[string]interface{}, key string) string {
-	if v, ok := m[key].(string); ok {
-		return v
+func parseHysteriaLink(link string) (*model.Node, error) {
+	u, err := url.Parse(link)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hysteria url: %v", err)
 	}
-	return ""
+
+	query := u.Query()
+
+	port, _ := strconv.Atoi(u.Port())
+	node := &model.Node{
+		Type:     "hysteria",
+		Server:   u.Hostname(),
+		Port:     port,
+		Password: query.Get("auth"),
+		Network:  query.Get("protocol"),
+		TLS:      true,
+	}
+
+	if name := u.Fragment; name != "" {
+		decodedName, err := url.QueryUnescape(name)
+		if err == nil {
+			node.Name = decodedName
+		} else {
+			node.Name = name
+		}
+	}
+
+	return node, nil
 }
 
-// ExportLink converts a Node model to a shareable link
 func ExportLink(node *model.Node) (string, error) {
 	switch node.Type {
-	case "ss", "shadowsocks":
-		return exportSS(node)
+	case "ss":
+		return exportShadowsocksLink(node)
 	case "vmess":
-		return exportVmess(node)
+		return exportVMessLink(node)
 	case "trojan":
-		return exportTrojan(node)
+		return exportTrojanLink(node)
 	case "vless":
-		return exportVless(node)
-	case "socks5", "sk5":
-		return exportSocks5(node)
-	case "hysteria2", "hysteria":
-		return exportHysteria2(node)
+		return exportVLESSLink(node)
+	case "socks":
+		return exportSOCKS5Link(node)
+	case "hysteria2":
+		return exportHysteria2Link(node)
+	case "hysteria":
+		return exportHysteriaLink(node)
 	default:
-		return "", errors.New("unsupported node type: " + node.Type)
+		return "", fmt.Errorf("unsupported node type: %s", node.Type)
 	}
 }
 
-func exportSS(node *model.Node) (string, error) {
-	// Format: ss://base64(method:password@server:port)#name
-	if node.Cipher == "" || node.Password == "" {
-		return "", errors.New("missing required SS fields")
+func ParseSubscription(content string) ([]model.Node, error) {
+	// 尝试 base64 解码
+	decodedContent := content
+	decoded, err := tryBase64Decode(content)
+	if err == nil {
+		decodedContent = decoded
 	}
 
-	userInfo := fmt.Sprintf("%s:%s", node.Cipher, node.Password)
-	serverPart := fmt.Sprintf("%s:%d", node.Server, node.Port)
-	full := fmt.Sprintf("%s@%s", userInfo, serverPart)
-
-	encoded := base64.RawURLEncoding.EncodeToString([]byte(full))
-	link := fmt.Sprintf("ss://%s", encoded)
-
-	if node.Name != "" {
-		link += "#" + url.QueryEscape(node.Name)
-	}
-
-	return link, nil
-}
-
-func exportVmess(node *model.Node) (string, error) {
-	// vmess://base64(json)
-	if node.UUID == "" {
-		return "", errors.New("missing UUID for VMess")
-	}
-
-	// Parse extra config for alterId
-	alterId := 0
-	if node.ExtraConfig != "" {
-		var extra map[string]interface{}
-		if err := json.Unmarshal([]byte(node.ExtraConfig), &extra); err == nil {
-			if v, ok := extra["alterId"]; ok {
-				switch val := v.(type) {
-				case float64:
-					alterId = int(val)
-				case int:
-					alterId = val
-				case string:
-					alterId, _ = strconv.Atoi(val)
-				}
-			}
-		}
-	}
-
-	vMap := map[string]interface{}{
-		"v":    "2",
-		"ps":   node.Name,
-		"add":  node.Server,
-		"port": node.Port,
-		"id":   node.UUID,
-		"aid":  alterId,
-		"net":  node.Network,
-		"type": "none",
-		"host": node.Host,
-		"path": node.Path,
-		"tls":  "",
-	}
-
-	if node.TLS {
-		vMap["tls"] = "tls"
-	}
-
-	jsonBytes, _ := json.Marshal(vMap)
-	encoded := base64.StdEncoding.EncodeToString(jsonBytes)
-	return fmt.Sprintf("vmess://%s", encoded), nil
-}
-
-func exportTrojan(node *model.Node) (string, error) {
-	// trojan://password@host:port#name
-	if node.Password == "" {
-		return "", errors.New("missing password for Trojan")
-	}
-
-	link := fmt.Sprintf("trojan://%s@%s:%d", node.Password, node.Server, node.Port)
-
-	// Add query parameters for SNI
-	if node.Host != "" {
-		link += fmt.Sprintf("?sni=%s", url.QueryEscape(node.Host))
-	}
-
-	if node.Name != "" {
-		link += "#" + url.QueryEscape(node.Name)
-	}
-
-	return link, nil
-}
-
-func exportVless(node *model.Node) (string, error) {
-	// vless://uuid@server:port?params#name
-	if node.UUID == "" {
-		return "", errors.New("missing UUID for VLESS")
-	}
-
-	params := url.Values{}
-	params.Set("type", node.Network)
-	if node.Network == "ws" || node.Network == "grpc" {
-		if node.Path != "" {
-			params.Set("path", node.Path)
-		}
-		if node.Host != "" {
-			params.Set("host", node.Host)
-		}
-	}
-	if node.TLS {
-		params.Set("security", "tls")
-		if node.Host != "" {
-			params.Set("sni", node.Host)
-		}
-	}
-
-	link := fmt.Sprintf("vless://%s@%s:%d?%s", node.UUID, node.Server, node.Port, params.Encode())
-
-	if node.Name != "" {
-		link += "#" + url.QueryEscape(node.Name)
-	}
-
-	return link, nil
-}
-
-func exportSocks5(node *model.Node) (string, error) {
-	// socks5://username:password@server:port#name
-	if node.Username == "" || node.Password == "" {
-		return "", errors.New("missing username or password for SOCKS5")
-	}
-
-	userInfo := fmt.Sprintf("%s:%s", node.Username, node.Password)
-	link := fmt.Sprintf("socks5://%s@%s:%d", url.QueryEscape(userInfo), node.Server, node.Port)
-
-	// Add query parameters
-	params := url.Values{}
-	if node.Network != "" {
-		params.Set("network", node.Network)
-	}
-	if node.Path != "" {
-		params.Set("path", node.Path)
-	}
-	if node.Host != "" {
-		params.Set("host", node.Host)
-	}
-	if node.TLS {
-		params.Set("tls", "true")
-	}
-	if node.SkipCert {
-		params.Set("skip-cert-verify", "true")
-	}
-	if node.UDP {
-		params.Set("udp", "true")
-	}
-
-	if len(params) > 0 {
-		link += "?" + params.Encode()
-	}
-
-	if node.Name != "" {
-		link += "#" + url.QueryEscape(node.Name)
-	}
-
-	return link, nil
-}
-
-func exportHysteria2(node *model.Node) (string, error) {
-	// hysteria2://password@server:port?params#name
-	password := node.Password
-	if password == "" && node.UUID != "" {
-		password = node.UUID
-	}
-	if password == "" {
-		return "", errors.New("missing password for Hysteria2")
-	}
-
-	params := url.Values{}
-	if node.Host != "" {
-		params.Set("sni", node.Host)
-	}
-
-	link := fmt.Sprintf("hysteria2://%s@%s:%d", url.QueryEscape(password), node.Server, node.Port)
-	if len(params) > 0 {
-		link += "?" + params.Encode()
-	}
-
-	if node.Name != "" {
-		link += "#" + url.QueryEscape(node.Name)
-	}
-
-	return link, nil
-}
-
-// ParseSubscription parses a subscription URL and returns a list of nodes
-func ParseSubscription(subURL string) ([]model.Node, error) {
-	// Fetch the subscription content
-	resp, err := http.Get(subURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch subscription: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Decode base64 content
-	decoded, err := base64.StdEncoding.DecodeString(string(body))
-	if err != nil {
-		// Try with raw URL encoding
-		decoded, err = base64.RawStdEncoding.DecodeString(string(body))
-		if err != nil {
-			// Try with URL encoding
-			decoded, err = base64.URLEncoding.DecodeString(string(body))
-			if err != nil {
-				// Try with raw URL encoding
-				decoded, err = base64.RawURLEncoding.DecodeString(string(body))
-				if err != nil {
-					return nil, fmt.Errorf("failed to decode subscription content: %w", err)
-				}
-			}
-		}
-	}
-
-	// Split into lines
-	lines := strings.Split(string(decoded), "\n")
-
-	// Parse each line as a proxy link
+	lines := strings.Split(decodedContent, "\n")
 	nodes := make([]model.Node, 0)
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
 		node, err := ParseLink(line)
 		if err != nil {
-			// Skip invalid links
 			continue
 		}
 
 		nodes = append(nodes, *node)
 	}
 
-	if len(nodes) == 0 {
-		return nil, errors.New("no valid nodes found in subscription")
-	}
-
 	return nodes, nil
 }
 
-// MergeNodes merges existing nodes with new nodes based on sync mode
-func MergeNodes(existingNodes []model.Node, newNodes []model.Node, syncMode string, sourceName string) []model.Node {
-	switch syncMode {
-	case "replace":
-		// Replace all existing nodes with new nodes
-		return newNodes
-
-	case "append":
-		// Append new nodes to existing nodes
-		merged := make([]model.Node, len(existingNodes))
-		copy(merged, existingNodes)
-		merged = append(merged, newNodes...)
-		return merged
-
-	case "smart":
-		// Smart merge: update existing nodes by name, add new ones
-		merged := make([]model.Node, 0)
-		existingMap := make(map[string]model.Node)
-
-		// Add existing nodes to map
-		for _, node := range existingNodes {
-			existingMap[node.Name] = node
+func tryBase64Decode(content string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(content)
+		if err != nil {
+			return "", err
 		}
-
-		// Process new nodes
-		for _, node := range newNodes {
-			if _, ok := existingMap[node.Name]; ok {
-				// Update existing node
-				merged = append(merged, node)
-				delete(existingMap, node.Name)
-			} else {
-				// Add new node
-				merged = append(merged, node)
-			}
-		}
-
-		// Add remaining existing nodes
-		for _, node := range existingMap {
-			merged = append(merged, node)
-		}
-
-		return merged
-
-	default:
-		// Default to append mode
-		merged := make([]model.Node, len(existingNodes))
-		copy(merged, existingNodes)
-		merged = append(merged, newNodes...)
-		return merged
 	}
+	return string(decoded), nil
+}
+
+func exportShadowsocksLink(node *model.Node) (string, error) {
+	userInfo := fmt.Sprintf("%s:%s", node.Cipher, node.Password)
+	encoded := base64.StdEncoding.EncodeToString([]byte(userInfo))
+	link := fmt.Sprintf("ss://%s@%s:%d", encoded, node.Server, node.Port)
+	if node.Name != "" {
+		link += "#" + url.QueryEscape(node.Name)
+	}
+	return link, nil
+}
+
+func exportVMessLink(node *model.Node) (string, error) {
+	u := url.URL{
+		Scheme: "vmess",
+		Host:   fmt.Sprintf("%s:%d", node.Server, node.Port),
+	}
+
+	q := u.Query()
+	q.Set("id", node.UUID)
+	q.Set("alterId", node.AlterId)
+	q.Set("cipher", node.Cipher)
+	q.Set("net", node.Network)
+	q.Set("path", node.Path)
+	q.Set("host", node.Host)
+	if node.TLS {
+		q.Set("tls", "true")
+	}
+	if node.Name != "" {
+		q.Set("ps", node.Name)
+	}
+
+	u.RawQuery = q.Encode()
+	encoded := base64.StdEncoding.EncodeToString([]byte(u.String()[8:]))
+	return "vmess://" + encoded, nil
+}
+
+func exportTrojanLink(node *model.Node) (string, error) {
+	u := url.URL{
+		Scheme:   "trojan",
+		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
+		User:     url.UserPassword(node.Password, ""),
+		Fragment: node.Name,
+	}
+	return u.String(), nil
+}
+
+func exportVLESSLink(node *model.Node) (string, error) {
+	u := url.URL{
+		Scheme:   "vless",
+		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
+		User:     url.User(node.UUID),
+		Fragment: node.Name,
+	}
+
+	q := u.Query()
+	q.Set("type", node.Network)
+	q.Set("path", node.Path)
+	q.Set("host", node.Host)
+	if node.TLS {
+		q.Set("security", "tls")
+	}
+	if node.ALPN != "" {
+		q.Set("alpn", node.ALPN)
+	}
+
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+func exportSOCKS5Link(node *model.Node) (string, error) {
+	u := url.URL{
+		Scheme:   "socks5",
+		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
+		Fragment: node.Name,
+	}
+
+	if node.Username != "" {
+		if node.Password != "" {
+			u.User = url.UserPassword(node.Username, node.Password)
+		} else {
+			u.User = url.User(node.Username)
+		}
+	}
+
+	return u.String(), nil
+}
+
+func exportHysteria2Link(node *model.Node) (string, error) {
+	u := url.URL{
+		Scheme:   "hysteria2",
+		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
+		Fragment: node.Name,
+	}
+
+	q := u.Query()
+	if node.Password != "" {
+		q.Set("password", node.Password)
+	}
+
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+func exportHysteriaLink(node *model.Node) (string, error) {
+	u := url.URL{
+		Scheme:   "hysteria",
+		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
+		Fragment: node.Name,
+	}
+
+	q := u.Query()
+	if node.Password != "" {
+		q.Set("auth", node.Password)
+	}
+	if node.Network != "" {
+		q.Set("protocol", node.Network)
+	}
+
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }

@@ -20,19 +20,37 @@ func (s *RuleService) ListRules() ([]model.Rule, error) {
 		return nil, fmt.Errorf("failed to load config: %v", err)
 	}
 
+	// 构建节点名称集合，用于判断目标类型
+	nodeNames := make(map[string]bool)
+	for _, proxy := range cfg.Proxies {
+		nodeNames[proxy.Name] = true
+	}
+
 	rules := make([]model.Rule, 0, len(cfg.Rules))
 	for i, ruleStr := range cfg.Rules {
+		// 去除字符串两端的单引号和可能的前缀
+		ruleStr = strings.Trim(ruleStr, "'")
+		ruleStr = strings.TrimPrefix(ruleStr, "- ")
+		ruleStr = strings.TrimSpace(ruleStr)
 		parts := strings.Split(ruleStr, ",")
 		if len(parts) < 3 {
 			continue
 		}
 
+		target := strings.TrimSpace(parts[2])
+		// 推断目标类型
+		targetType := "builtin"
+		if nodeNames[target] {
+			targetType = "node"
+		}
+
 		rule := model.Rule{
-			ID:       uint(i + 1),
-			Type:     strings.TrimSpace(parts[0]),
-			Payload:  strings.TrimSpace(parts[1]),
-			Target:   strings.TrimSpace(parts[2]),
-			Priority: i,
+			ID:         uint(i + 1),
+			Type:       strings.TrimSpace(parts[0]),
+			Payload:    strings.TrimSpace(parts[1]),
+			Target:     target,
+			TargetType: targetType,
+			Priority:   i,
 		}
 
 		if len(parts) >= 4 && strings.TrimSpace(parts[3]) == "no-resolve" {

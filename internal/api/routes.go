@@ -10,6 +10,7 @@ func SetupRoutes(r *gin.Engine) {
 	nodeHandler := handlers.NewNodeHandler()
 	ruleHandler := handlers.NewRuleHandler()
 	sourceHandler := handlers.NewSubscriptionSourceHandler()
+	settingsHandler := handlers.NewSettingsHandler()
 
 	api := r.Group("/api")
 	{
@@ -34,5 +35,8 @@ func SetupRoutes(r *gin.Engine) {
 		api.DELETE("/sources/:id", sourceHandler.DeleteSource)
 		api.POST("/sources/:id/sync", sourceHandler.SyncSource)
 		api.POST("/sources/test", sourceHandler.TestSource)
+
+		api.GET("/settings/dns", settingsHandler.GetDNS)
+		api.POST("/settings/dns", settingsHandler.SaveDNS)
 	}
 }

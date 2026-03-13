@@ -7,7 +7,7 @@ import (
 
 const (
 	ServerPort = ":8090"
-	MihomoPath = "/docs/config.yaml"
+	MihomoPath = "data/mihomo_config.yaml"
 )
 
 func GetDBPath() string {
@@ -48,4 +48,27 @@ func WriteFile(path string, data []byte) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0644)
+}
+
+func CopyConfigToMihomo() error {
+	srcPath := GetConfigPath()
+	dstPath := MihomoPath
+
+	// 确保目标路径是绝对路径
+	if !filepath.IsAbs(dstPath) {
+		cwd, _ := os.Getwd()
+		dstPath = filepath.Join(cwd, dstPath)
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(dstPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(dstPath, data, 0644)
 }

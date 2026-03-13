@@ -12,13 +12,24 @@ import (
 	"clash-manager/internal/model"
 )
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 type SubscriptionSource struct {
-	ID        uint      `json:"id"`
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	SyncMode  string    `json:"sync_mode"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             uint       `json:"id"`
+	Name           string     `json:"name"`
+	URL            string     `json:"url"`
+	NodeFilter     string     `json:"node_filter"`
+	SyncMode       string     `json:"sync_mode"`
+	Enabled        bool       `json:"enabled"`
+	UpdateInterval int        `json:"updateInterval"`
+	LastSync       *time.Time `json:"last_sync"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 type SubscriptionService struct{}
@@ -29,7 +40,7 @@ func NewSubscriptionService() *SubscriptionService {
 
 func (s *SubscriptionService) ListSources() ([]SubscriptionSource, error) {
 	sourcesPath := config.GetSubscriptionSourcesPath()
-	
+
 	data, err := config.ReadFile(sourcesPath)
 	if err != nil {
 		return []SubscriptionSource{}, nil
@@ -90,79 +101,216 @@ func (s *SubscriptionService) DeleteSource(id uint) error {
 	return s.saveSources(sources)
 }
 
-func (s *SubscriptionService) SyncSource(id uint) error {
+func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 	sources, err := s.ListSources()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if id < 1 || int(id) > len(sources) {
-		return fmt.Errorf("invalid source id: %d", id)
+		return 0, fmt.Errorf("invalid source id: %d", id)
 	}
 
 	source := sources[id-1]
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(source.URL)
 	if err != nil {
-		return fmt.Errorf("failed to fetch subscription: %v", err)
+		return 0, fmt.Errorf("failed to fetch subscription: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("subscription returned status: %d", resp.StatusCode)
+		return 0, fmt.Errorf("subscription returned status: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response: %v", err)
+		return 0, fmt.Errorf("failed to read response: %v", err)
 	}
 
-	nodes, err := s.parseNodesFromContent(string(body))
+	content := string(body)
+	fmt.Printf("[SyncSource] Subscription content length: %d\n", len(content))
+	fmt.Printf("[SyncSource] Content preview (first 500 chars): %s\n", content[:min(500, len(content))])
+
+	nodes, err := s.parseNodesFromContent(content)
 	if err != nil {
-		return fmt.Errorf("failed to parse nodes: %v", err)
+		return 0, fmt.Errorf("failed to parse nodes: %v", err)
 	}
+
+	// 应用节点过滤
+	filteredNodes := nodes
+	if source.NodeFilter != "" {
+		filters := strings.Split(source.NodeFilter, ",")
+		filtered := make([]model.Node, 0)
+		for _, node := range nodes {
+			shouldExclude := false
+			for _, filter := range filters {
+				filter = strings.TrimSpace(filter)
+				if filter != "" && strings.Contains(strings.ToLower(node.Name), strings.ToLower(filter)) {
+					shouldExclude = true
+					break
+				}
+			}
+			if !shouldExclude {
+				filtered = append(filtered, node)
+			}
+		}
+		filteredNodes = filtered
+		fmt.Printf("[SyncSource] Filtered to %d nodes (excluded %d nodes, filter: %s)\n", len(filteredNodes), len(nodes)-len(filteredNodes), source.NodeFilter)
+	}
+
+	fmt.Printf("[SyncSource] Parsed %d nodes from subscription\n", len(nodes))
 
 	nodeService := NewNodeService()
 	existingNodes, err := nodeService.ListNodes()
 	if err != nil {
-		return fmt.Errorf("failed to get existing nodes: %v", err)
+		return 0, fmt.Errorf("failed to get existing nodes: %v", err)
 	}
 
-	existingNames := make(map[string]bool)
-	for _, n := range existingNodes {
-		existingNames[n.Name] = true
-	}
-
-	for _, node := range nodes {
-		originalName := node.Name
-		newName := ""
-		for j := 1; ; j++ {
-			newName = fmt.Sprintf("Name%d", j)
-			if !existingNames[newName] {
-				break
+	count := 0
+	switch source.SyncMode {
+	case "replace":
+		// 替换模式：清空所有节点
+		for i := len(existingNodes); i > 0; i-- {
+			if err := nodeService.DeleteNode(uint(i)); err != nil {
+				fmt.Printf("[SyncSource] Failed to delete node %d: %v\n", i, err)
 			}
 		}
 
-		node.Rename = originalName
-		node.Name = newName
-		node.Source = source.Name
+		// 重新获取现有节点（已清空）
+		existingNames := make(map[string]bool)
+		for _, node := range filteredNodes {
+			originalName := node.Name
+			newName := ""
+			for j := 1; ; j++ {
+				newName = fmt.Sprintf("Name%d", j)
+				if !existingNames[newName] {
+					break
+				}
+			}
 
-		if err := nodeService.CreateNode(&node); err != nil {
-			fmt.Printf("[SyncSource] Failed to create node: %v\n", err)
-			continue
+			node.Rename = originalName
+			node.Name = newName
+			node.Source = source.Name
+
+			if err := nodeService.CreateNode(&node); err != nil {
+				fmt.Printf("[SyncSource] Failed to create node: %v\n", err)
+				continue
+			}
+
+			existingNames[newName] = true
+			count++
 		}
 
-		existingNames[newName] = true
+	case "smart":
+		// 智能合并模式：根据Rename字段判断节点是否存在
+		renameToNode := make(map[string]model.Node)
+		for _, n := range existingNodes {
+			if n.Rename != "" {
+				renameToNode[n.Rename] = n
+			}
+		}
+
+		existingNames := make(map[string]bool)
+		for _, n := range existingNodes {
+			existingNames[n.Name] = true
+		}
+
+		for _, node := range filteredNodes {
+			originalName := node.Name
+
+			// 检查是否已存在（根据Rename字段）
+			if existingNode, exists := renameToNode[originalName]; exists {
+				// 节点存在，检查是否需要更新
+				node.ID = existingNode.ID
+				node.Name = existingNode.Name // 保持原有Name
+				node.Rename = originalName
+				node.Source = source.Name
+
+				if err := nodeService.UpdateNode(existingNode.ID, &node); err != nil {
+					fmt.Printf("[SyncSource] Failed to update node: %v\n", err)
+					continue
+				}
+				count++
+			} else {
+				// 节点不存在，创建新节点
+				newName := ""
+				for j := 1; ; j++ {
+					newName = fmt.Sprintf("Name%d", j)
+					if !existingNames[newName] {
+						break
+					}
+				}
+
+				node.Rename = originalName
+				node.Name = newName
+				node.Source = source.Name
+
+				if err := nodeService.CreateNode(&node); err != nil {
+					fmt.Printf("[SyncSource] Failed to create node: %v\n", err)
+					continue
+				}
+
+				existingNames[newName] = true
+				count++
+			}
+		}
+
+	default: // append 模式
+		// 追加模式：不判断节点是否存在，直接追加
+		existingNames := make(map[string]bool)
+		for _, n := range existingNodes {
+			existingNames[n.Name] = true
+		}
+
+		for _, node := range filteredNodes {
+			originalName := node.Name
+			newName := ""
+			for j := 1; ; j++ {
+				newName = fmt.Sprintf("Name%d", j)
+				if !existingNames[newName] {
+					break
+				}
+			}
+
+			node.Rename = originalName
+			node.Name = newName
+			node.Source = source.Name
+
+			if err := nodeService.CreateNode(&node); err != nil {
+				fmt.Printf("[SyncSource] Failed to create node: %v\n", err)
+				continue
+			}
+
+			existingNames[newName] = true
+			count++
+		}
 	}
 
-	return nil
+	// 更新最后同步时间
+	now := time.Now()
+	sources[id-1].LastSync = &now
+	sources[id-1].UpdatedAt = now
+	if err := s.saveSources(sources); err != nil {
+		fmt.Printf("[SyncSource] Failed to update last_sync: %v\n", err)
+	}
+
+	return count, nil
 }
 
 func (s *SubscriptionService) parseNodesFromContent(content string) ([]model.Node, error) {
 	var nodes []model.Node
 
-	lines := strings.Split(content, "\n")
+	decodedContent := content
+
+	decoded, err := tryBase64Decode(content)
+	if err == nil {
+		decodedContent = decoded
+		fmt.Printf("[parseNodesFromContent] Successfully decoded base64 content\n")
+	}
+
+	lines := strings.Split(decodedContent, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -171,6 +319,7 @@ func (s *SubscriptionService) parseNodesFromContent(content string) ([]model.Nod
 
 		node, err := ParseLink(line)
 		if err != nil {
+			fmt.Printf("[parseNodesFromContent] Failed to parse line: %s, error: %v\n", line, err)
 			continue
 		}
 

@@ -105,8 +105,8 @@
     </el-dialog>
 
     <!-- 新增/编辑节点对话框 -->
-    <el-dialog v-model="formDialogVisible" :title="isEdit ? '编辑节点' : '新增节点'" width="700px">
-      <el-tabs v-model="activeTab" type="border-card" @tab-change="handleTabChange">
+    <el-dialog v-model="formDialogVisible" :title="isEdit ? '编辑节点' : '新增节点'" width="700px" class="node-edit-dialog">
+      <el-tabs v-model="activeTab" type="border-card" @tab-change="handleTabChange" class="node-type-tabs">
         <!-- Shadowsocks -->
         <el-tab-pane label="Shadowsocks" name="ss">
           <template #label>
@@ -622,13 +622,9 @@ const handleImport = async () => {
     const link = links[i]
     const trimmedLink = link.trim()
     if (trimmedLink) {
-      // 如果没有协议头，默认添加 sk5:// 前缀
+      // 保留原始链接，让后端处理各种格式（包括自定义格式）
       let processLink = trimmedLink
-      const hasProtocol = /^(ss|vmess|trojan|vless|socks5|hysteria2|hysteria):\/\//i.test(trimmedLink)
-      if (!hasProtocol) {
-        processLink = 'socks5://' + trimmedLink
-        console.log('检测到无协议头的节点，自动添加 socks5:// 前缀:', processLink)
-      }
+      console.log('正在处理第', i + 1, '个节点:', processLink)
       
       console.log('正在导入第', i + 1, '个节点:', processLink)
       try {
@@ -926,6 +922,63 @@ onMounted(() => {
 
 :deep(.el-tab-pane) {
   background: #fff;
+}
+
+/* 节点类型标签页美化样式 */
+.node-type-tabs {
+  :deep(.el-tabs__header) {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+    border-bottom: 2px solid #dcdfe6;
+    margin: 0;
+  }
+
+  :deep(.el-tabs__nav) {
+    border: none;
+  }
+
+  :deep(.el-tabs__item) {
+    border: none;
+    border-right: 1px solid #e4e7ed;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    color: #606266;
+    padding: 0 16px;
+    height: 42px;
+    line-height: 42px;
+
+    &:hover {
+      color: #409eff;
+      background: rgba(64, 158, 255, 0.1);
+    }
+
+    &.is-active {
+      color: #fff;
+      background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+      box-shadow: 0 2px 8px rgba(64, 158, 255, 0.4);
+      font-weight: 600;
+      transform: translateY(-1px);
+
+      .el-icon {
+        color: #fff;
+      }
+    }
+
+    &:first-child {
+      border-radius: 4px 0 0 0;
+    }
+
+    &:last-child {
+      border-right: none;
+      border-radius: 0 4px 0 0;
+    }
+  }
+
+  :deep(.el-tabs__content) {
+    border: 1px solid #e4e7ed;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    background: #fff;
+  }
 }
 
 /* 导出链接对话框样式 */
