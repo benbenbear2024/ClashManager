@@ -90,20 +90,6 @@
                 </div>
               </el-option>
             </el-option-group>
-            <el-option-group label="代理组" v-if="groups.length > 0">
-              <el-option
-                v-for="group in groups"
-                :key="'group-' + group.id"
-                :label="group.name"
-                :value="'group:' + group.name"
-              >
-                <div class="option-content-flex">
-                  <el-icon><Grid /></el-icon>
-                  <span class="option-name">{{ group.name }}</span>
-                  <el-tag size="small" class="option-type-tag">{{ group.type }}</el-tag>
-                </div>
-              </el-option>
-            </el-option-group>
           </el-select>
 
           <el-select
@@ -266,20 +252,6 @@
                 </div>
               </el-option>
             </el-option-group>
-            <el-option-group label="代理组">
-              <el-option
-                v-for="group in groups"
-                :key="group.id"
-                :label="group.name"
-                :value="`group:${group.id}:${group.name}`"
-              >
-                <div class="option-content-flex">
-                  <el-icon><Grid /></el-icon>
-                  <span class="option-name">{{ group.name }}</span>
-                  <el-tag size="small" class="option-type-tag">{{ group.type }}</el-tag>
-                </div>
-              </el-option>
-            </el-option-group>
           </el-select>
         </el-form-item>
         <el-form-item label="标签">
@@ -357,11 +329,9 @@ import {
   UploadFilled
 } from '@element-plus/icons-vue'
 import { getRules, createRule, updateRule, deleteRule, importRules, getTags } from '@/api/rules'
-import { getGroups } from '@/api/groups'
 import { getNodes } from '@/api/nodes'
 
 const rules = ref([])
-const groups = ref([])
 const nodes = ref([])
 const availableTags = ref([])
 const formDialogVisible = ref(false)
@@ -385,19 +355,9 @@ const ruleForm = ref({
   Remark: ''
 })
 
-// 解析目标显示名称（从ID转换为名称）
+// 解析目标显示名称
 const getTargetDisplayName = (row) => {
-  // Handle builtin targets (including empty target_type for backward compatibility)
-  if (!row.target_type || row.target_type === 'builtin') {
-    return row.target
-  }
-  if (row.target_type === 'node') {
-    const node = nodes.value.find(n => String(n.id) === String(row.target_id))
-    return node ? node.name : row.target
-  } else if (row.target_type === 'group') {
-    const group = groups.value.find(g => String(g.id) === String(row.target_id))
-    return group ? group.name : row.target
-  }
+  // 直接返回目标值
   return row.target
 }
 
@@ -489,12 +449,13 @@ const loadRules = async () => {
   }
 }
 
-const loadGroups = async () => {
-  groups.value = await getGroups()
-}
-
 const loadNodes = async () => {
-  nodes.value = await getNodes()
+  try {
+    nodes.value = await getNodes()
+  } catch (error) {
+    console.error('Load nodes error:', error)
+    nodes.value = []
+  }
 }
 
 const handleTargetChange = (value) => {
@@ -524,7 +485,7 @@ const showCreateDialog = async () => {
     Tag: '',
     Remark: ''
   }
-  await Promise.all([loadGroups(), loadNodes()])
+  await loadNodes()
   formDialogVisible.value = true
 }
 
@@ -541,10 +502,6 @@ const handleEdit = async (row) => {
     }
   } else if (row.target_type === 'group') {
     // Find group by ID to get the name
-    const group = groups.value.find(g => String(g.id) === String(row.target_id))
-    if (group) {
-      targetValue = `group:${group.id}:${group.name}`
-    }
   }
   ruleForm.value = {
     Type: row.type,
@@ -556,7 +513,7 @@ const handleEdit = async (row) => {
     Tag: row.tag || '',
     Remark: row.remark || ''
   }
-  await Promise.all([loadGroups(), loadNodes()])
+  await loadNodes()
   formDialogVisible.value = true
 }
 
@@ -579,18 +536,6 @@ const handleSave = async () => {
       // Extract name for target field
       if (parts.length >= 3) {
         targetValue = parts.slice(2).join(':') // Use the node name
-      } else {
-        targetValue = parts[1] // Fallback to ID if name not available
-      }
-    }
-  } else if (targetType === 'group' && targetValue.startsWith('group:')) {
-    // Extract ID from "group:ID:Name" format
-    const parts = targetValue.split(':')
-    if (parts.length >= 2) {
-      targetID = parseInt(parts[1], 10)
-      // Extract name for target field
-      if (parts.length >= 3) {
-        targetValue = parts.slice(2).join(':') // Use the group name
       } else {
         targetValue = parts[1] // Fallback to ID if name not available
       }
@@ -619,7 +564,7 @@ const handleSave = async () => {
   }
   formDialogVisible.value = false
   // 重新加载节点和策略组数据，确保规则列表能正确显示目标名称
-  await Promise.all([loadGroups(), loadNodes()])
+  await loadNodes()
   loadRules()
   loadAvailableTags() // Refresh available tags
 }
@@ -628,8 +573,8 @@ const handleDelete = async (row) => {
   await ElMessageBox.confirm('确定删除该规则吗？', '提示', { type: 'warning' })
   await deleteRule(row.id)
   ElMessage.success('删除成功')
-  // 重新加载节点和策略组数据，确保规则列表能正确显示目标名称
-  await Promise.all([loadGroups(), loadNodes()])
+  // 重新加载节点数据，确保规则列表能正确显示目标名称
+  await loadNodes()
   loadRules()
 }
 
@@ -721,8 +666,8 @@ const handleImport = async () => {
     ElMessage.success(`成功导入 ${result.count} 条规则`)
     importDialogVisible.value = false
     importContent.value = ''
-    // 重新加载节点和策略组数据，确保规则列表能正确显示目标名称
-    await Promise.all([loadGroups(), loadNodes()])
+    // 重新加载节点数据，确保规则列表能正确显示目标名称
+    await loadNodes()
     loadRules()
   } catch (error) {
     ElMessage.error('导入失败: ' + (error.message || '未知错误'))
@@ -741,8 +686,8 @@ const loadAvailableTags = async () => {
 }
 
 onMounted(async () => {
-  // 先加载节点和策略组数据，确保规则列表能正确显示目标名称
-  await Promise.all([loadGroups(), loadNodes()])
+  // 先加载节点数据，确保规则列表能正确显示目标名称
+  await loadNodes()
   loadRules()
   loadAvailableTags()
 })

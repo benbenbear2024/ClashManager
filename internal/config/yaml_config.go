@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -10,25 +9,25 @@ import (
 )
 
 type MihomoConfig struct {
-	MixedPort           int                    `yaml:"mixed-port,omitempty"`
-	RedirPort           int                    `yaml:"redir-port,omitempty"`
-	TproxyPort          int                    `yaml:"tproxy-port,omitempty"`
-	Authentication      []string               `yaml:"authentication,omitempty"`
-	AllowLan            bool                   `yaml:"allow-lan,omitempty"`
-	Mode                string                 `yaml:"mode,omitempty"`
-	LogLevel            string                 `yaml:"log-level,omitempty"`
-	IPv6                bool                   `yaml:"ipv6,omitempty"`
-	ExternalController  string                 `yaml:"external-controller,omitempty"`
-	ExternalUI          string                 `yaml:"external-ui,omitempty"`
-	Secret              string                 `yaml:"secret,omitempty"`
-	Tun                 map[string]interface{} `yaml:"tun,omitempty"`
-	Experimental        map[string]interface{} `yaml:"experimental,omitempty"`
-	DNS                 map[string]interface{} `yaml:"dns,omitempty"`
-	StoreSelected       bool                   `yaml:"store-selected,omitempty"`
-	FindProcessMode     string                 `yaml:"find-process-mode,omitempty"`
-	Proxies             []ProxyConfig          `yaml:"proxies,omitempty"`
-	ProxyGroups         []ProxyGroupConfig     `yaml:"proxy-groups,omitempty"`
-	Rules               []string               `yaml:"rules,omitempty"`
+	MixedPort          int                    `yaml:"mixed-port,omitempty"`
+	RedirPort          int                    `yaml:"redir-port,omitempty"`
+	TproxyPort         int                    `yaml:"tproxy-port,omitempty"`
+	Authentication     []string               `yaml:"authentication,omitempty"`
+	AllowLan           bool                   `yaml:"allow-lan,omitempty"`
+	Mode               string                 `yaml:"mode,omitempty"`
+	LogLevel           string                 `yaml:"log-level,omitempty"`
+	IPv6               bool                   `yaml:"ipv6,omitempty"`
+	ExternalController string                 `yaml:"external-controller,omitempty"`
+	ExternalUI         string                 `yaml:"external-ui,omitempty"`
+	Secret             string                 `yaml:"secret,omitempty"`
+	Tun                map[string]interface{} `yaml:"tun,omitempty"`
+	Experimental       map[string]interface{} `yaml:"experimental,omitempty"`
+	DNS                map[string]interface{} `yaml:"dns,omitempty"`
+	StoreSelected      bool                   `yaml:"store-selected,omitempty"`
+	FindProcessMode    string                 `yaml:"find-process-mode,omitempty"`
+	Proxies            []ProxyConfig          `yaml:"proxies,omitempty"`
+	ProxyGroups        []ProxyGroupConfig     `yaml:"proxy-groups,omitempty"`
+	Rules              []string               `yaml:"rules,omitempty"`
 }
 
 type ProxyConfig struct {
@@ -54,11 +53,11 @@ type ProxyConfig struct {
 }
 
 type ProxyGroupConfig struct {
-	Name    string   `yaml:"name"`
-	Type    string   `yaml:"type"`
-	Proxies []string `yaml:"proxies,omitempty"`
-	URL     string   `yaml:"url,omitempty"`
-	Interval int     `yaml:"interval,omitempty"`
+	Name     string   `yaml:"name"`
+	Type     string   `yaml:"type"`
+	Proxies  []string `yaml:"proxies,omitempty"`
+	URL      string   `yaml:"url,omitempty"`
+	Interval int      `yaml:"interval,omitempty"`
 }
 
 func GetConfigPath() string {
@@ -68,7 +67,7 @@ func GetConfigPath() string {
 
 func LoadConfig() (*MihomoConfig, error) {
 	configPath := GetConfigPath()
-	
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %v", err)
@@ -84,7 +83,7 @@ func LoadConfig() (*MihomoConfig, error) {
 
 func SaveConfig(config *MihomoConfig) error {
 	configPath := GetConfigPath()
-	
+
 	data, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %v", err)
@@ -92,38 +91,6 @@ func SaveConfig(config *MihomoConfig) error {
 
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %v", err)
-	}
-
-	if err := CopyConfigToMihomo(); err != nil {
-		return fmt.Errorf("failed to copy config to Mihomo: %v", err)
-	}
-
-	return nil
-}
-
-func CopyConfigToMihomo() error {
-	configPath := GetConfigPath()
-	mihomoPath := MihomoPath
-	
-	if mihomoPath == "" {
-		return nil
-	}
-
-	sourceFile, err := os.Open(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to open source config: %v", err)
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(mihomoPath)
-	if err != nil {
-		return fmt.Errorf("failed to create destination config: %v", err)
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy config: %v", err)
 	}
 
 	return nil

@@ -566,6 +566,9 @@ const handleBatchDelete = async () => {
     return
   }
   
+  console.log('选中的节点ID:', selectedNodes.value)
+  console.log('节点ID类型:', selectedNodes.value.map(id => typeof id))
+  
   try {
     await ElMessageBox.confirm(
       `确定要删除选中的 ${selectedNodes.value.length} 个节点吗？`,
@@ -577,16 +580,21 @@ const handleBatchDelete = async () => {
       }
     )
     
-    // 批量删除节点
-    const deletePromises = selectedNodes.value.map(id => deleteNode(id))
-    await Promise.all(deletePromises)
+    // 从大到小排序ID，从后往前删除避免ID变化问题
+    const sortedIds = [...selectedNodes.value].sort((a, b) => b - a)
+    console.log('排序后的ID:', sortedIds)
+    
+    for (const id of sortedIds) {
+      console.log('正在删除节点ID:', id)
+      await deleteNode(id)
+    }
     
     ElMessage.success(`成功删除 ${selectedNodes.value.length} 个节点`)
     selectedNodes.value = []
     loadNodes()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('批量删除失败')
+      ElMessage.error('批量删除失败: ' + (error.message || error))
       console.error('批量删除失败:', error)
     }
   }
