@@ -130,8 +130,6 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 	}
 
 	content := string(body)
-	fmt.Printf("[SyncSource] Subscription content length: %d\n", len(content))
-	fmt.Printf("[SyncSource] Content preview (first 500 chars): %s\n", content[:min(500, len(content))])
 
 	nodes, err := s.parseNodesFromContent(content)
 	if err != nil {
@@ -157,10 +155,7 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 			}
 		}
 		filteredNodes = filtered
-		fmt.Printf("[SyncSource] Filtered to %d nodes (excluded %d nodes, filter: %s)\n", len(filteredNodes), len(nodes)-len(filteredNodes), source.NodeFilter)
 	}
-
-	fmt.Printf("[SyncSource] Parsed %d nodes from subscription\n", len(nodes))
 
 	nodeService := NewNodeService()
 	existingNodes, err := nodeService.ListNodes()
@@ -173,9 +168,7 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 	case "replace":
 		// 替换模式：清空所有节点
 		for i := len(existingNodes); i > 0; i-- {
-			if err := nodeService.DeleteNode(uint(i)); err != nil {
-				fmt.Printf("[SyncSource] Failed to delete node %d: %v\n", i, err)
-			}
+			nodeService.DeleteNode(uint(i))
 		}
 
 		// 重新获取现有节点（已清空）
@@ -195,7 +188,6 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 			node.Source = source.Name
 
 			if err := nodeService.CreateNode(&node); err != nil {
-				fmt.Printf("[SyncSource] Failed to create node: %v\n", err)
 				continue
 			}
 
@@ -229,7 +221,6 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 				node.Source = source.Name
 
 				if err := nodeService.UpdateNode(existingNode.ID, &node); err != nil {
-					fmt.Printf("[SyncSource] Failed to update node: %v\n", err)
 					continue
 				}
 				count++
@@ -279,7 +270,6 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 			node.Source = source.Name
 
 			if err := nodeService.CreateNode(&node); err != nil {
-				fmt.Printf("[SyncSource] Failed to create node: %v\n", err)
 				continue
 			}
 
@@ -292,9 +282,7 @@ func (s *SubscriptionService) SyncSource(id uint) (int, error) {
 	now := time.Now()
 	sources[id-1].LastSync = &now
 	sources[id-1].UpdatedAt = now
-	if err := s.saveSources(sources); err != nil {
-		fmt.Printf("[SyncSource] Failed to update last_sync: %v\n", err)
-	}
+	s.saveSources(sources)
 
 	return count, nil
 }
@@ -307,7 +295,6 @@ func (s *SubscriptionService) parseNodesFromContent(content string) ([]model.Nod
 	decoded, err := tryBase64Decode(content)
 	if err == nil {
 		decodedContent = decoded
-		fmt.Printf("[parseNodesFromContent] Successfully decoded base64 content\n")
 	}
 
 	lines := strings.Split(decodedContent, "\n")
@@ -319,7 +306,6 @@ func (s *SubscriptionService) parseNodesFromContent(content string) ([]model.Nod
 
 		node, err := ParseLink(line)
 		if err != nil {
-			fmt.Printf("[parseNodesFromContent] Failed to parse line: %s, error: %v\n", line, err)
 			continue
 		}
 

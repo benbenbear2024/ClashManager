@@ -155,7 +155,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 	// 格式可能是: method:password 或 server:port:method:password
 	var method, password string
 	decodedStr := string(decoded)
-	
+
 	// 如果已经有 serverAddr，则 decoded 只包含 method:password
 	if serverAddr != "" {
 		// 从 serverAddr 解析服务器和端口
@@ -165,7 +165,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 		}
 		serverAddr = serverParts[0]
 		port, _ := strconv.Atoi(serverParts[1])
-		
+
 		// decoded 包含 method:password
 		methodPass := strings.SplitN(decodedStr, ":", 2)
 		if len(methodPass) == 2 {
@@ -174,7 +174,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 		} else {
 			method = decodedStr
 		}
-		
+
 		node := &model.Node{
 			Type:     "ss",
 			Server:   serverAddr,
@@ -182,7 +182,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 			Cipher:   method,
 			Password: password,
 		}
-		
+
 		if name != "" {
 			decodedName, err := url.QueryUnescape(name)
 			if err == nil {
@@ -191,7 +191,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 				node.Name = name
 			}
 		}
-		
+
 		return node, nil
 	}
 
@@ -343,7 +343,7 @@ func parseSOCKS5Link(link string) (*model.Node, error) {
 
 	port, _ := strconv.Atoi(u.Port())
 	node := &model.Node{
-		Type:   "socks",
+		Type:   "socks5",
 		Server: u.Hostname(),
 		Port:   port,
 	}
@@ -436,7 +436,7 @@ func ExportLink(node *model.Node) (string, error) {
 		return exportTrojanLink(node)
 	case "vless":
 		return exportVLESSLink(node)
-	case "socks":
+	case "socks", "socks5":
 		return exportSOCKS5Link(node)
 	case "hysteria2":
 		return exportHysteria2Link(node)

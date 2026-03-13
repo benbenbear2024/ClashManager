@@ -8,6 +8,7 @@
             <span>节点列表</span>
           </div>
           <div class="header-right">
+            <el-button type="warning" :icon="Edit" @click="showBatchEditDialog" :disabled="selectedNodes.length === 0">批量编辑</el-button>
             <el-button type="danger" :icon="Delete" @click="handleBatchDelete" :disabled="selectedNodes.length === 0">批量删除</el-button>
             <el-button type="primary" :icon="Upload" @click="showImportDialog">导入节点</el-button>
             <el-button type="success" :icon="Plus" @click="showCreateDialog">新增节点</el-button>
@@ -101,6 +102,30 @@
       <template #footer>
         <el-button @click="importDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleImport">导入</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量编辑节点对话框 -->
+    <el-dialog v-model="batchEditDialogVisible" title="批量编辑节点" width="800px">
+      <div style="margin-bottom: 15px;">
+        <el-tag type="info" size="large">已选择 {{ selectedNodes.length }} 条节点</el-tag>
+        <el-tag v-if="batchEditInputCount > 0" type="success" size="large" style="margin-left: 10px;">将导入 {{ batchEditInputCount }} 条</el-tag>
+      </div>
+      <el-form :model="batchEditForm">
+        <el-form-item label="节点信息">
+          <el-input
+            v-model="batchEditForm.nodesText"
+            type="textarea"
+            :rows="15"
+            placeholder="请粘贴节点信息，每行一个节点，格式与导入节点相同。节点数量应与选择的节点数量一致。"
+            style="font-family: monospace; font-size: 13px;"
+            @input="handleBatchEditInput"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchEditDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchEditSave">保存</el-button>
       </template>
     </el-dialog>
 
@@ -427,16 +452,21 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Delete, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Plus, Upload, Delete, Edit, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { getNodes, createNode, updateNode, deleteNode, importNode, exportNode } from '@/api/nodes'
 
 const nodes = ref([])
 const selectedNodes = ref([])
 const importDialogVisible = ref(false)
 const formDialogVisible = ref(false)
+const batchEditDialogVisible = ref(false)
 const activeTab = ref('vmess')
 const isEdit = ref(false)
 const importForm = ref({ link: '' })
+
+// 批量编辑相关
+const batchEditForm = ref({ nodesText: '' })
+const batchEditInputCount = ref(0)
 
 // 分页相关
 const currentPage = ref(1)
@@ -557,7 +587,411 @@ const handleCurrentChange = (current) => {
 }
 
 const handleSelectionChange = (selection) => {
-  selectedNodes.value = selection.map(node => node.id)
+  // 确保 ID 是数字类型
+  selectedNodes.value = selection.map(node => Number(node.id))
+}
+
+// 显示批量编辑对话框
+const showBatchEditDialog = () => {
+  if (selectedNodes.value.length === 0) {
+    ElMessage.warning('请先选择要编辑的节点')
+    return
+  }
+  batchEditForm.value.nodesText = ''
+  batchEditInputCount.value = 0
+  batchEditDialogVisible.value = true
+}
+
+// 处理批量编辑输入
+const handleBatchEditInput = () => {
+  const lines = batchEditForm.value.nodesText.trim().split(/[\r\n]+/).filter(line => line.trim())
+  batchEditInputCount.value = lines.length
+}
+
+// 保存批量编辑
+const handleBatchEditSave = async () => {
+  if (selectedNodes.value.length === 0) {
+    ElMessage.warning('没有选中的节点')
+    return
+  }
+
+  const lines = batchEditForm.value.nodesText.trim().split(/[\r\n]+/).filter(line => line.trim())
+  
+  if (lines.length === 0) {
+    ElMessage.warning('请输入节点信息')
+    return
+  }
+
+  // 检查数量是否匹配
+  if (lines.length !== selectedNodes.value.length) {
+    try {
+      await ElMessageBox.confirm(
+        `选择的节点数量 (${selectedNodes.value.length}) 与输入的节点数量 (${lines.length}) 不一致，是否继续？`,
+        '数量不匹配',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    } catch (error) {
+      if (error === 'cancel') {
+        return
+      }
+    }
+  }
+
+  // 依次更新节点
+  let successCount = 0
+  let errorCount = 0
+  const sortedSelectedIds = [...selectedNodes.value].sort((a, b) => a - b)
+  
+  for (let i = 0; i < Math.min(lines.length, sortedSelectedIds.length); i++) {
+    const line = lines[i]
+    const nodeId = sortedSelectedIds[i]
+    
+    try {
+      // 获取原节点信息
+      const originalNode = nodes.value.find(n => n.id === nodeId)
+      if (!originalNode) {
+        errorCount++
+        continue
+      }
+      
+      // 解析新节点信息
+      const newNode = parseNodeLink(line)
+      if (!newNode) {
+        errorCount++
+        continue
+      }
+      
+      // 保持原节点名称不变，rename 从新输入节点中获取
+      const newNodeName = newNode.Name || newNode.name || ''
+      newNode.Name = originalNode.name
+      newNode.Rename = newNodeName
+      
+      await updateNode(nodeId, newNode)
+      successCount++
+    } catch (error) {
+      console.error(`更新节点 ${nodeId} 失败:`, error)
+      errorCount++
+    }
+  }
+
+  if (successCount > 0) {
+    ElMessage.success(`成功更新 ${successCount} 个节点`)
+  }
+  if (errorCount > 0) {
+    ElMessage.warning(`${errorCount} 个节点更新失败`)
+  }
+
+  batchEditDialogVisible.value = false
+  selectedNodes.value = []
+  loadNodes()
+}
+
+// 解析节点链接
+const parseNodeLink = (link) => {
+  link = link.trim()
+  if (!link) return null
+
+  // 处理自定义格式（无协议头）
+  if (!link.includes('://')) {
+    // 尝试 / 分隔符
+    let parts = link.split('/')
+    if (parts.length >= 4) {
+      return {
+        Type: 'socks5',
+        Server: parts[0],
+        Port: parseInt(parts[1]),
+        Username: parts[2],
+        Password: parts[3],
+        Name: parts[4] || generateAutoName(),
+        Rename: parts[4] || ''
+      }
+    }
+    // 尝试 | 分隔符
+    parts = link.split('|')
+    if (parts.length >= 4) {
+      return {
+        Type: 'socks5',
+        Server: parts[0],
+        Port: parseInt(parts[1]),
+        Username: parts[2],
+        Password: parts[3],
+        Name: parts[4] || generateAutoName(),
+        Rename: parts[4] || ''
+      }
+    }
+    return null
+  }
+
+  // 处理各种协议
+  try {
+    const url = new URL(link)
+    const protocol = url.protocol.slice(0, -1)
+    const hash = url.hash ? decodeURIComponent(url.hash.slice(1)) : ''
+    
+    const baseNode = {
+      Server: url.hostname,
+      Port: parseInt(url.port),
+      Name: hash || generateAutoName()
+    }
+
+    switch (protocol) {
+      case 'ss':
+        return parseSSLink(link, baseNode)
+      case 'vmess':
+        return parseVMessLink(link, baseNode)
+      case 'trojan':
+        return parseTrojanLink(link, baseNode)
+      case 'vless':
+        return parseVLESSLink(link, baseNode)
+      case 'socks5':
+      case 'socks':
+        return parseSocksLink(link, baseNode)
+      case 'hysteria2':
+        return parseHysteria2Link(link, baseNode)
+      default:
+        return null
+    }
+  } catch (error) {
+    console.error('解析链接失败:', error)
+    return null
+  }
+}
+
+// 生成自动名称
+const generateAutoName = () => {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const random = Math.floor(10000 + Math.random() * 90000)
+  return `SK5_${month}${day}_${random}`
+}
+
+// 解析 SS 链接
+// 格式: ss://base64(method:password)@server:port#name
+const parseSSLink = (link, baseNode) => {
+  try {
+    // 移除 ss:// 前缀
+    const content = link.substring(5)
+    
+    // 分离名称部分
+    let serverInfo = content
+    let name = ''
+    const hashIdx = content.indexOf('#')
+    if (hashIdx !== -1) {
+      serverInfo = content.substring(0, hashIdx)
+      name = decodeURIComponent(content.substring(hashIdx + 1))
+    }
+    
+    // 分离 base64 部分和服务器地址
+    let base64Part = serverInfo
+    let serverAddr = ''
+    const atIdx = serverInfo.indexOf('@')
+    if (atIdx !== -1) {
+      base64Part = serverInfo.substring(0, atIdx)
+      serverAddr = serverInfo.substring(atIdx + 1)
+    }
+    
+    // URL 解码（处理 %3D 等）
+    base64Part = decodeURIComponent(base64Part)
+    
+    // Base64 解码 - 尝试多种方式
+    let decoded = ''
+    try {
+      decoded = atob(base64Part)
+    } catch {
+      try {
+        // URL safe base64
+        decoded = atob(base64Part.replace(/-/g, '+').replace(/_/g, '/'))
+      } catch {
+        // 尝试填充
+        const pad = base64Part.length % 4
+        if (pad) {
+          base64Part += '='.repeat(4 - pad)
+        }
+        try {
+          decoded = atob(base64Part)
+        } catch {
+          try {
+            decoded = atob(base64Part.replace(/-/g, '+').replace(/_/g, '/'))
+          } catch {
+            return null
+          }
+        }
+      }
+    }
+    
+    // 解析 method:password
+    const colonIdx = decoded.indexOf(':')
+    if (colonIdx === -1) return null
+    
+    const method = decoded.substring(0, colonIdx)
+    const password = decoded.substring(colonIdx + 1)
+    
+    // 解析服务器和端口
+    let server = ''
+    let port = 0
+    if (serverAddr) {
+      const portIdx = serverAddr.lastIndexOf(':')
+      if (portIdx !== -1) {
+        server = serverAddr.substring(0, portIdx)
+        port = parseInt(serverAddr.substring(portIdx + 1))
+      } else {
+        server = serverAddr
+        port = 8388
+      }
+    }
+    
+    return {
+      Type: 'ss',
+      Server: server,
+      Port: port,
+      Cipher: method,
+      Password: password,
+      Name: name || baseNode.Name
+    }
+  } catch (error) {
+    console.error('解析 SS 链接失败:', error)
+    return null
+  }
+}
+
+// 解析 VMess 链接
+// 格式: vmess://base64(json)
+const parseVMessLink = (link, baseNode) => {
+  try {
+    const b64 = link.substring(8) // 移除 'vmess://'
+    
+    // Base64 解码 - 尝试多种方式
+    let decoded = ''
+    try {
+      decoded = atob(b64)
+    } catch {
+      try {
+        // URL safe base64
+        decoded = atob(b64.replace(/-/g, '+').replace(/_/g, '/'))
+      } catch {
+        // 尝试填充
+        let padded = b64
+        const pad = b64.length % 4
+        if (pad) {
+          padded += '='.repeat(4 - pad)
+        }
+        try {
+          decoded = atob(padded)
+        } catch {
+          try {
+            decoded = atob(padded.replace(/-/g, '+').replace(/_/g, '/'))
+          } catch {
+            return null
+          }
+        }
+      }
+    }
+    
+    const config = JSON.parse(decoded)
+    
+    return {
+      Type: 'vmess',
+      Server: config.add || config.host || baseNode.Server,
+      Port: parseInt(config.port) || baseNode.Port,
+      UUID: config.id || config.uuid,
+      AlterId: String(config.aid || config.alterId || 0),
+      Cipher: config.scy || config.cipher || 'auto',
+      Network: config.net || config.network || 'tcp',
+      Path: config.path || '',
+      Host: config.host || config.sni || '',
+      TLS: config.tls === 'tls' || config.security === 'tls' || config.tls === true,
+      Name: config.ps || config.remarks || baseNode.Name
+    }
+  } catch (error) {
+    console.error('解析 VMess 链接失败:', error)
+    return null
+  }
+}
+
+// 解析 Trojan 链接
+const parseTrojanLink = (link, baseNode) => {
+  try {
+    const url = new URL(link)
+    return {
+      Type: 'trojan',
+      Server: url.hostname,
+      Port: parseInt(url.port) || 443,
+      Password: decodeURIComponent(url.username),
+      SNI: url.searchParams.get('sni') || url.hostname,
+      AllowInsecure: url.searchParams.get('allowInsecure') === '1',
+      Name: baseNode.Name
+    }
+  } catch (error) {
+    console.error('解析 Trojan 链接失败:', error)
+    return null
+  }
+}
+
+// 解析 VLESS 链接
+const parseVLESSLink = (link, baseNode) => {
+  try {
+    const url = new URL(link)
+    return {
+      Type: 'vless',
+      Server: url.hostname,
+      Port: parseInt(url.port) || 443,
+      UUID: decodeURIComponent(url.username),
+      Network: url.searchParams.get('type') || 'tcp',
+      Security: url.searchParams.get('security') || 'none',
+      Path: url.searchParams.get('path') || '',
+      Host: url.searchParams.get('host') || '',
+      SNI: url.searchParams.get('sni') || '',
+      Name: baseNode.Name
+    }
+  } catch (error) {
+    console.error('解析 VLESS 链接失败:', error)
+    return null
+  }
+}
+
+// 解析 Socks5 链接
+const parseSocksLink = (link, baseNode) => {
+  try {
+    const url = new URL(link)
+    return {
+      Type: 'socks5',
+      Server: url.hostname,
+      Port: parseInt(url.port) || 1080,
+      Username: decodeURIComponent(url.username) || '',
+      Password: decodeURIComponent(url.password) || '',
+      Name: baseNode.Name
+    }
+  } catch (error) {
+    console.error('解析 Socks5 链接失败:', error)
+    return null
+  }
+}
+
+// 解析 Hysteria2 链接
+const parseHysteria2Link = (link, baseNode) => {
+  try {
+    const url = new URL(link)
+    // Hysteria2 格式: hysteria2://password@server:port?params#name
+    // 密码在 username 位置（在 @ 前面）
+    const password = decodeURIComponent(url.username) || ''
+    return {
+      Type: 'hysteria2',
+      Server: url.hostname,
+      Port: parseInt(url.port) || 443,
+      Password: password,
+      SNI: url.searchParams.get('sni') || '',
+      Insecure: url.searchParams.get('insecure') === '1',
+      Name: baseNode.Name
+    }
+  } catch (error) {
+    console.error('解析 Hysteria2 链接失败:', error)
+    return null
+  }
 }
 
 const handleBatchDelete = async () => {
@@ -565,9 +999,6 @@ const handleBatchDelete = async () => {
     ElMessage.warning('请选择要删除的节点')
     return
   }
-  
-  console.log('选中的节点ID:', selectedNodes.value)
-  console.log('节点ID类型:', selectedNodes.value.map(id => typeof id))
   
   try {
     await ElMessageBox.confirm(
@@ -582,10 +1013,8 @@ const handleBatchDelete = async () => {
     
     // 从大到小排序ID，从后往前删除避免ID变化问题
     const sortedIds = [...selectedNodes.value].sort((a, b) => b - a)
-    console.log('排序后的ID:', sortedIds)
     
     for (const id of sortedIds) {
-      console.log('正在删除节点ID:', id)
       await deleteNode(id)
     }
     

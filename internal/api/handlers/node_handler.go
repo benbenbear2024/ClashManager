@@ -44,29 +44,21 @@ func (h *NodeHandler) CreateNode(c *gin.Context) {
 func (h *NodeHandler) UpdateNode(c *gin.Context) {
 	var node model.Node
 	if err := c.ShouldBindJSON(&node); err != nil {
-		fmt.Printf("UpdateNode: JSON binding error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	idStr := c.Param("id")
-	fmt.Printf("UpdateNode: Received ID parameter: '%s'\n", idStr)
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		fmt.Printf("UpdateNode: ID conversion error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
 		return
 	}
 	node.ID = uint(id)
 
-	fmt.Printf("UpdateNode: Updating node ID=%d, Name=%s, Type=%s, Server=%s, Port=%d, Username=%s, Password=%s, Rename=%s\n", 
-		node.ID, node.Name, node.Type, node.Server, node.Port, node.Username, node.Password, node.Rename)
-
 	if err := h.Service.UpdateNode(uint(id), &node); err != nil {
-		fmt.Printf("UpdateNode: Update error: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Printf("UpdateNode: Successfully updated node ID=%d\n", node.ID)
 	c.JSON(http.StatusOK, node)
 }
 

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,7 +22,6 @@ func NewRuleHandler() *RuleHandler {
 func (h *RuleHandler) ListRules(c *gin.Context) {
 	rules, err := h.Service.ListRules()
 	if err != nil {
-		fmt.Printf("[ListRules] Error: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -46,9 +44,9 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 			payloadLower := strings.ToLower(rule.Payload)
 			targetLower := strings.ToLower(rule.Target)
 			typeLower := strings.ToLower(ruleType)
-			if !strings.Contains(payloadLower, keywordLower) && 
-			   !strings.Contains(targetLower, keywordLower) && 
-			   !strings.Contains(typeLower, keywordLower) {
+			if !strings.Contains(payloadLower, keywordLower) &&
+				!strings.Contains(targetLower, keywordLower) &&
+				!strings.Contains(typeLower, keywordLower) {
 				continue
 			}
 		}
@@ -139,7 +137,6 @@ func (h *RuleHandler) ImportRules(c *gin.Context) {
 	// 只在开始时调用一次 ListRules()
 	existingRules, err := h.Service.ListRules()
 	if err != nil {
-		fmt.Printf("[ImportRules] Failed to list rules: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list rules"})
 		return
 	}
@@ -169,16 +166,15 @@ func (h *RuleHandler) ImportRules(c *gin.Context) {
 
 		// 验证规则类型是否在支持的列表中
 		validTypes := map[string]bool{
-			"DOMAIN-SUFFIX": true,
-			"DOMAIN":        true,
+			"DOMAIN-SUFFIX":  true,
+			"DOMAIN":         true,
 			"DOMAIN-KEYWORD": true,
-			"IP-CIDR":       true,
-			"SRC-IP-CIDR":   true,
-			"GEOIP":         true,
-			"MATCH":         true,
+			"IP-CIDR":        true,
+			"SRC-IP-CIDR":    true,
+			"GEOIP":          true,
+			"MATCH":          true,
 		}
 		if !validTypes[ruleType] {
-			fmt.Printf("[ImportRules] Skipping invalid rule type: %s\n", ruleType)
 			continue
 		}
 
@@ -199,23 +195,17 @@ func (h *RuleHandler) ImportRules(c *gin.Context) {
 		if existingRule, found := ruleMap[key]; found {
 			// 更新现有规则
 			if err := h.Service.UpdateRule(existingRule.ID, rule); err != nil {
-				fmt.Printf("[ImportRules] Failed to update rule: %v\n", err)
 				continue
 			}
 			updateCount++
-			fmt.Printf("[ImportRules] Updated rule: Type=%s, Payload=%s, Target=%s, NoResolve=%v\n", rule.Type, rule.Payload, rule.Target, rule.NoResolve)
 		} else {
 			// 不存在则添加新规则
 			if err := h.Service.CreateRule(rule); err != nil {
-				fmt.Printf("[ImportRules] Failed to import rule: %v\n", err)
 				continue
 			}
 			importCount++
-			fmt.Printf("[ImportRules] Imported new rule: Type=%s, Payload=%s, Target=%s, NoResolve=%v\n", rule.Type, rule.Payload, rule.Target, rule.NoResolve)
 		}
 	}
-
-	fmt.Printf("[ImportRules] Total: imported=%d, updated=%d\n", importCount, updateCount)
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "Rules imported successfully",
 		"import_count": importCount,
