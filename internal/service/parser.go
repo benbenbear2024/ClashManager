@@ -323,14 +323,14 @@ func parseTrojanLink(link string) (*model.Node, error) {
 
 	// 解析查询参数
 	query := u.Query()
-	
+
 	// 设置 SNI
 	if sni := query.Get("sni"); sni != "" {
 		node.Host = sni
 	} else {
 		node.Host = u.Hostname()
 	}
-	
+
 	// 设置跳过证书验证
 	if query.Get("allowInsecure") == "1" {
 		node.SkipCert = true
@@ -540,7 +540,7 @@ func ExportLink(node *model.Node) (string, error) {
 func ParseSubscription(content string) ([]model.Node, error) {
 	// 尝试 base64 解码
 	decodedContent := content
-	decoded, err := tryBase64Decode(content)
+	decoded, err := TryBase64Decode(content)
 	if err == nil {
 		decodedContent = decoded
 	}
@@ -565,15 +565,54 @@ func ParseSubscription(content string) ([]model.Node, error) {
 	return nodes, nil
 }
 
-func tryBase64Decode(content string) (string, error) {
+func TryBase64Decode(content string) (string, error) {
+	// 先进行 URL 解码（处理 %3D 等编码字符）
+	content, _ = url.QueryUnescape(content)
+
+	// 尝试标准 base64
 	decoded, err := base64.StdEncoding.DecodeString(content)
-	if err != nil {
-		decoded, err = base64.URLEncoding.DecodeString(content)
-		if err != nil {
-			return "", err
+	if err == nil {
+		return string(decoded), nil
+	}
+
+	// 尝试 URL 安全的 base64
+	decoded, err = base64.URLEncoding.DecodeString(content)
+	if err == nil {
+		return string(decoded), nil
+	}
+
+	// 尝试 RawStdEncoding（无填充）
+	decoded, err = base64.RawStdEncoding.DecodeString(content)
+	if err == nil {
+		return string(decoded), nil
+	}
+
+	// 尝试 RawURLEncoding（无填充的 URL 安全）
+	decoded, err = base64.RawURLEncoding.DecodeString(content)
+	if err == nil {
+		return string(decoded), nil
+	}
+
+	// 尝试添加填充后解码
+	padded := content
+	pad := len(padded) % 4
+	if pad > 0 {
+		padded += strings.Repeat("=", 4-pad)
+
+		// 再次尝试标准 base64
+		decoded, err = base64.StdEncoding.DecodeString(padded)
+		if err == nil {
+			return string(decoded), nil
+		}
+
+		// 再次尝试 URL 安全的 base64
+		decoded, err = base64.URLEncoding.DecodeString(padded)
+		if err == nil {
+			return string(decoded), nil
 		}
 	}
-	return string(decoded), nil
+
+	return "", fmt.Errorf("all base64 decode attempts failed")
 }
 
 func exportShadowsocksLink(node *model.Node) (string, error) {
