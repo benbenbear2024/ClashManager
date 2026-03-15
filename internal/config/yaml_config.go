@@ -31,26 +31,43 @@ type MihomoConfig struct {
 }
 
 type ProxyConfig struct {
-	Name     string `yaml:"name"`
-	Type     string `yaml:"type"`
-	Server   string `yaml:"server"`
-	Port     int    `yaml:"port"`
-	Cipher   string `yaml:"cipher,omitempty"`
-	Password string `yaml:"password,omitempty"`
-	UDP      bool   `yaml:"udp,omitempty"`
-	Username string `yaml:"username,omitempty"`
-	UUID     string `yaml:"uuid,omitempty"`
-	AlterId  string `yaml:"alterId,omitempty"`
-	Network  string `yaml:"network,omitempty"`
-	TLS      bool   `yaml:"tls,omitempty"`
-	SkipCert bool   `yaml:"skip-cert-verify,omitempty"`
-	Path     string `yaml:"path,omitempty"`
-	Host     string `yaml:"host,omitempty"`
-	ALPN     string `yaml:"alpn,omitempty"`
-	Address  string `yaml:"address,omitempty"`
-	Delay    string `yaml:"delay,omitempty"`
-	URL      string `yaml:"url,omitempty"`
-	Rename   string `yaml:"rename,omitempty"`
+	Name              string       `yaml:"name"`
+	Type              string       `yaml:"type"`
+	Server            string       `yaml:"server"`
+	Port              int          `yaml:"port"`
+	Cipher            string       `yaml:"cipher,omitempty"`
+	Password          string       `yaml:"password,omitempty"`
+	UDP               bool         `yaml:"udp,omitempty"`
+	Username          string       `yaml:"username,omitempty"`
+	UUID              string       `yaml:"uuid,omitempty"`
+	AlterId           string       `yaml:"alterId"`
+	Network           string       `yaml:"network,omitempty"`
+	TLS               bool         `yaml:"tls,omitempty"`
+	SkipCert          bool         `yaml:"skip-cert-verify,omitempty"`
+	Path              string       `yaml:"path,omitempty"`
+	Host              string       `yaml:"host,omitempty"`
+	SNI               string       `yaml:"sni,omitempty"`
+	ALPN              string       `yaml:"alpn,omitempty"`
+	Address           string       `yaml:"address"`
+	Delay             string       `yaml:"delay,omitempty"`
+	URL               string       `yaml:"url,omitempty"`
+	Rename            string       `yaml:"rename,omitempty"`
+	Up                int          `yaml:"up,omitempty"`                 // Hysteria2 上行带宽
+	Down              int          `yaml:"down,omitempty"`               // Hysteria2 下行带宽
+	HopInterval       int          `yaml:"hop-interval,omitempty"`       // Hysteria2 跳跃间隔
+	Flow              string       `yaml:"flow,omitempty"`               // VLESS 流控
+	ServerName        string       `yaml:"servername,omitempty"`         // VLESS Reality 服务器名称
+	RealityOpts       *RealityOpts `yaml:"reality-opts,omitempty"`       // VLESS Reality 选项
+	ClientFingerprint string       `yaml:"client-fingerprint,omitempty"` // VLESS 客户端指纹
+}
+
+type RealityOpts struct {
+	PublicKey   string `yaml:"public-key,omitempty"`
+	ShortID     string `yaml:"short-id,omitempty"`
+	ServerName  string `yaml:"server-name,omitempty"`
+	Fingerprint string `yaml:"fingerprint,omitempty"`
+	Show        bool   `yaml:"show,omitempty"`
+	Debug       bool   `yaml:"debug,omitempty"`
 }
 
 type ProxyGroupConfig struct {

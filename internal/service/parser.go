@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -181,6 +182,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 			Port:     port,
 			Cipher:   method,
 			Password: password,
+			UDP:      true, // SS 默认启用 UDP
 		}
 
 		if name != "" {
@@ -220,6 +222,7 @@ func parseShadowsocksLink(link string) (*model.Node, error) {
 		Port:     port,
 		Cipher:   method,
 		Password: "",
+		UDP:      true, // SS 默认启用 UDP
 	}
 
 	if name != "" {
@@ -240,34 +243,62 @@ func parseVMessLink(link string) (*model.Node, error) {
 		return nil, fmt.Errorf("invalid vmess link")
 	}
 
+	// 尝试多种 base64 解码方式
 	decoded, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode vmess link: %v", err)
+		// 尝试 URL 安全的 base64 解码
+		decoded, err = base64.URLEncoding.DecodeString(parts[1])
+		if err != nil {
+			// 尝试原始 base64 解码
+			decoded, err = base64.RawStdEncoding.DecodeString(parts[1])
+			if err != nil {
+				// 尝试原始 URL 安全的 base64 解码
+				decoded, err = base64.RawURLEncoding.DecodeString(parts[1])
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode vmess link: %v", err)
+				}
+			}
+		}
 	}
 
-	u, err := url.Parse("vmess://" + string(decoded))
-	if err != nil {
-		return nil, fmt.Errorf("invalid vmess url: %v", err)
+	// 解析 JSON
+	var vmessConfig struct {
+		V    string `json:"v"`
+		Ps   string `json:"ps"`
+		Add  string `json:"add"`
+		Port string `json:"port"`
+		ID   string `json:"id"`
+		Aid  string `json:"aid"`
+		Scy  string `json:"scy"`
+		Net  string `json:"net"`
+		Type string `json:"type"`
+		Host string `json:"host"`
+		Path string `json:"path"`
+		TLS  string `json:"tls"`
+		Sni  string `json:"sni"`
+		Alpn string `json:"alpn"`
 	}
 
-	query := u.Query()
+	if err := json.Unmarshal(decoded, &vmessConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse vmess config: %v", err)
+	}
 
-	port, _ := strconv.Atoi(u.Port())
+	port, _ := strconv.Atoi(vmessConfig.Port)
 	node := &model.Node{
 		Type:    "vmess",
-		Server:  u.Hostname(),
+		Server:  vmessConfig.Add,
 		Port:    port,
-		UUID:    query.Get("id"),
-		AlterId: "0",
-		Cipher:  "auto",
-		Network: query.Get("net"),
-		Path:    query.Get("path"),
-		Host:    query.Get("host"),
-		TLS:     query.Get("tls") == "true",
+		UUID:    vmessConfig.ID,
+		AlterId: vmessConfig.Aid,
+		Cipher:  vmessConfig.Scy,
+		Network: vmessConfig.Net,
+		Path:    vmessConfig.Path,
+		Host:    vmessConfig.Host,
+		TLS:     vmessConfig.TLS == "tls" || vmessConfig.TLS == "True" || vmessConfig.TLS == "true",
 	}
 
-	if name := query.Get("ps"); name != "" {
-		node.Name = name
+	if vmessConfig.Ps != "" {
+		node.Name = vmessConfig.Ps
 	}
 
 	return node, nil
@@ -285,9 +316,24 @@ func parseTrojanLink(link string) (*model.Node, error) {
 		Server:   u.Hostname(),
 		Port:     port,
 		Password: u.User.Username(),
-		UUID:     u.User.Username(),
 		Network:  "tcp",
 		TLS:      true,
+		UDP:      true,
+	}
+
+	// 解析查询参数
+	query := u.Query()
+	
+	// 设置 SNI
+	if sni := query.Get("sni"); sni != "" {
+		node.Host = sni
+	} else {
+		node.Host = u.Hostname()
+	}
+	
+	// 设置跳过证书验证
+	if query.Get("allowInsecure") == "1" {
+		node.SkipCert = true
 	}
 
 	if name := u.Fragment; name != "" {
@@ -319,8 +365,30 @@ func parseVLESSLink(link string) (*model.Node, error) {
 		Network: query.Get("type"),
 		Path:    query.Get("path"),
 		Host:    query.Get("host"),
-		TLS:     query.Get("security") == "tls",
+		TLS:     query.Get("security") == "tls" || query.Get("security") == "reality",
 		ALPN:    query.Get("alpn"),
+		UDP:     true,   // VLESS 默认启用 UDP
+		Cipher:  "auto", // VLESS 默认加密方式
+		AlterId: "0",    // VLESS 默认 alterId
+	}
+
+	// 处理 Reality 配置
+	if query.Get("security") == "reality" {
+		node.PublicKey = query.Get("pbk")
+		node.ShortID = query.Get("sid")
+		node.ServerName = query.Get("servername")
+		node.ClientFingerprint = query.Get("fp")
+		if node.ClientFingerprint == "" {
+			node.ClientFingerprint = "safari" // 默认指纹
+		}
+	}
+
+	// 处理流控
+	node.Flow = query.Get("flow")
+
+	// 处理 SNI
+	if sni := query.Get("sni"); sni != "" {
+		node.Host = sni
 	}
 
 	if name := u.Fragment; name != "" {
@@ -376,12 +444,34 @@ func parseHysteria2Link(link string) (*model.Node, error) {
 	query := u.Query()
 
 	port, _ := strconv.Atoi(u.Port())
+
+	// 解析 up、down、hop-interval 参数
+	up, _ := strconv.Atoi(query.Get("up"))
+	down, _ := strconv.Atoi(query.Get("down"))
+	hopInterval, _ := strconv.Atoi(query.Get("hop-interval"))
+
+	// 设置默认值
+	if up == 0 {
+		up = 30
+	}
+	if down == 0 {
+		down = 30
+	}
+	if hopInterval == 0 {
+		hopInterval = 60
+	}
+
 	node := &model.Node{
-		Type:     "hysteria2",
-		Server:   u.Hostname(),
-		Port:     port,
-		Password: query.Get("password"),
-		TLS:      true,
+		Type:        "hysteria2",
+		Server:      u.Hostname(),
+		Port:        port,
+		Password:    u.User.Username(), // 密码在 username 位置
+		TLS:         true,
+		Host:        query.Get("sni"),             // SNI 映射到 Host 字段
+		SkipCert:    query.Get("insecure") == "1", // insecure 映射到 SkipCert 字段
+		Up:          up,
+		Down:        down,
+		HopInterval: hopInterval,
 	}
 
 	if name := u.Fragment; name != "" {
@@ -490,8 +580,12 @@ func exportShadowsocksLink(node *model.Node) (string, error) {
 	userInfo := fmt.Sprintf("%s:%s", node.Cipher, node.Password)
 	encoded := base64.StdEncoding.EncodeToString([]byte(userInfo))
 	link := fmt.Sprintf("ss://%s@%s:%d", encoded, node.Server, node.Port)
-	if node.Name != "" {
-		link += "#" + url.QueryEscape(node.Name)
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
+	if name != "" {
+		link += "#" + url.QueryEscape(name)
 	}
 	return link, nil
 }
@@ -512,8 +606,12 @@ func exportVMessLink(node *model.Node) (string, error) {
 	if node.TLS {
 		q.Set("tls", "true")
 	}
-	if node.Name != "" {
-		q.Set("ps", node.Name)
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
+	if name != "" {
+		q.Set("ps", name)
 	}
 
 	u.RawQuery = q.Encode()
@@ -522,21 +620,29 @@ func exportVMessLink(node *model.Node) (string, error) {
 }
 
 func exportTrojanLink(node *model.Node) (string, error) {
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
 	u := url.URL{
 		Scheme:   "trojan",
 		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
 		User:     url.UserPassword(node.Password, ""),
-		Fragment: node.Name,
+		Fragment: name,
 	}
 	return u.String(), nil
 }
 
 func exportVLESSLink(node *model.Node) (string, error) {
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
 	u := url.URL{
 		Scheme:   "vless",
 		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
 		User:     url.User(node.UUID),
-		Fragment: node.Name,
+		Fragment: name,
 	}
 
 	q := u.Query()
@@ -555,10 +661,14 @@ func exportVLESSLink(node *model.Node) (string, error) {
 }
 
 func exportSOCKS5Link(node *model.Node) (string, error) {
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
 	u := url.URL{
 		Scheme:   "socks5",
 		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
-		Fragment: node.Name,
+		Fragment: name,
 	}
 
 	if node.Username != "" {
@@ -573,10 +683,14 @@ func exportSOCKS5Link(node *model.Node) (string, error) {
 }
 
 func exportHysteria2Link(node *model.Node) (string, error) {
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
 	u := url.URL{
 		Scheme:   "hysteria2",
 		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
-		Fragment: node.Name,
+		Fragment: name,
 	}
 
 	q := u.Query()
@@ -589,10 +703,14 @@ func exportHysteria2Link(node *model.Node) (string, error) {
 }
 
 func exportHysteriaLink(node *model.Node) (string, error) {
+	name := node.Rename
+	if name == "" {
+		name = node.Name
+	}
 	u := url.URL{
 		Scheme:   "hysteria",
 		Host:     fmt.Sprintf("%s:%d", node.Server, node.Port),
-		Fragment: node.Name,
+		Fragment: name,
 	}
 
 	q := u.Query()

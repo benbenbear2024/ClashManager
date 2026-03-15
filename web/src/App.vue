@@ -1,16 +1,16 @@
 <template>
   <div class="app-container">
     <el-container style="height: 100vh;">
-      <el-aside width="240px">
+      <el-aside width="180px">
         <div class="logo">
-          <div class="logo-icon">
+         <!--  <div class="logo-icon">
             <svg viewBox="0 0 1024 1024" width="28" height="28">
               <path fill="currentColor" d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z" opacity="0.2"/>
               <path fill="currentColor" d="M765.9 186.2c-119.4-114.7-308.9-111.7-424.4 6.9S227.5 496.7 346.9 611.4c119.4 114.7 308.9 111.7 424.4-6.9s113.9-303.6-5.5-418.3zM393.3 657.6c-91.8-88.1-94.4-233.6-5.8-324.9s235.2-95.3 327 7.1c91.8 102.4 89.2 247.9-2.6 336.2-88.5 85.2-230.4 83.5-318.6-18.4z"/>
               <path fill="currentColor" d="M512 320c-17.7 0-32 14.3-32 32v160c0 17.7 14.3 32 32 32s32-14.3 32-32V352c0-17.7-14.3-32-32-32zm0 280c-22.1 0-40 17.9-40 40s17.9 40 40 40 40-17.9 40-40-17.9-40-40-40z"/>
             </svg>
-          </div>
-          <span class="logo-text">Clash Manager</span>
+          </div> -->
+          <span class="logo-text">节点管理系统</span>
         </div>
         <el-menu
           :default-active="currentPath"
@@ -24,10 +24,6 @@
           <el-menu-item index="/rules">
             <el-icon><DocumentCopy /></el-icon>
             <span>规则管理</span>
-          </el-menu-item>
-          <el-menu-item index="/groups">
-            <el-icon><Grid /></el-icon>
-            <span>代理组管理</span>
           </el-menu-item>
 
           <el-menu-item index="/sources">
@@ -64,7 +60,6 @@ import { useRoute } from 'vue-router'
 import {
   Connection,
   DocumentCopy,
-  Grid,
   Link,
   Document,
   Setting,
@@ -78,7 +73,6 @@ const currentPath = computed(() => route.path)
 const pageTitleMap = {
   '/nodes': '节点管理',
   '/rules': '规则管理',
-  '/groups': '代理组管理',
   '/sources': '订阅源管理',
   '/settings': '系统设置'
 }

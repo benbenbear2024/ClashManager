@@ -180,6 +180,9 @@
               <el-switch v-model="nodeForm.UDP" />
               <span style="margin-left: 10px; color: #909399; font-size: 12px;">启用UDP转发</span>
             </el-form-item>
+            <el-form-item label="地址">
+              <el-input v-model="nodeForm.Address" placeholder="请输入地址（可选）" />
+            </el-form-item>
           </el-form>
         </el-tab-pane>
 
@@ -208,6 +211,9 @@
             </el-form-item>
             <el-form-item label="UUID">
               <el-input v-model="nodeForm.UUID" placeholder="请输入UUID" />
+            </el-form-item>
+            <el-form-item label="AlterId">
+              <el-input v-model="nodeForm.AlterId" placeholder="请输入AlterId，默认为0" />
             </el-form-item>
             <el-form-item label="加密方式">
               <el-select v-model="nodeForm.Cipher" placeholder="请选择加密方式" style="width: 100%">
@@ -238,6 +244,46 @@
             </el-form-item>
             <el-form-item label="UDP转发">
               <el-switch v-model="nodeForm.UDP" />
+            </el-form-item>
+            <el-form-item label="上行带宽(Mbps)">
+              <el-input-number v-model="nodeForm.Up" :min="1" :max="1000" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="下行带宽(Mbps)">
+              <el-input-number v-model="nodeForm.Down" :min="1" :max="1000" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="跳跃间隔(秒)">
+              <el-input-number v-model="nodeForm.HopInterval" :min="1" :max="3600" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="流控(Flow)">
+              <el-input v-model="nodeForm.Flow" placeholder="留空或输入如 xtls-rprx-vision" />
+              <span style="color: #909399; font-size: 12px; margin-top: 5px; display: block;">Reality 模式通常留空</span>
+            </el-form-item>
+            <el-form-item label="服务器名称" v-if="nodeForm.TLS">
+              <el-input v-model="nodeForm.ServerName" placeholder="Reality 模式下填写服务器名称" />
+            </el-form-item>
+            <el-form-item label="Reality 公钥" v-if="nodeForm.TLS">
+              <el-input v-model="nodeForm.PublicKey" placeholder="Reality 模式下填写公钥" />
+            </el-form-item>
+            <el-form-item label="Reality 短ID" v-if="nodeForm.TLS">
+              <el-input v-model="nodeForm.ShortID" placeholder="Reality 模式下填写短ID" />
+            </el-form-item>
+            <el-form-item label="Reality 指纹" v-if="nodeForm.TLS">
+              <el-select v-model="nodeForm.Fingerprint" placeholder="请选择 Reality 指纹" style="width: 100%">
+                <el-option label="Chrome" value="chrome" />
+                <el-option label="Firefox" value="firefox" />
+                <el-option label="Safari" value="safari" />
+                <el-option label="Edge" value="edge" />
+                <el-option label="Random" value="random" />
+                <el-option label="Randomized" value="randomized" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="显示 Reality 详情" v-if="nodeForm.TLS">
+              <el-switch v-model="nodeForm.RealityShow" />
+              <span style="margin-left: 10px; color: #909399; font-size: 12px;">在日志中显示 REALITY 连接详情（调试用）</span>
+            </el-form-item>
+            <el-form-item label="开启调试" v-if="nodeForm.TLS">
+              <el-switch v-model="nodeForm.RealityDebug" />
+              <span style="margin-left: 10px; color: #909399; font-size: 12px;">开启调试信息</span>
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -290,6 +336,15 @@
             <el-form-item label="UDP转发">
               <el-switch v-model="nodeForm.UDP" />
             </el-form-item>
+            <el-form-item label="上行带宽(Mbps)">
+              <el-input-number v-model="nodeForm.Up" :min="1" :max="1000" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="下行带宽(Mbps)">
+              <el-input-number v-model="nodeForm.Down" :min="1" :max="1000" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="跳跃间隔(秒)">
+              <el-input-number v-model="nodeForm.HopInterval" :min="1" :max="3600" style="width: 100%" />
+            </el-form-item>
           </el-form>
         </el-tab-pane>
 
@@ -341,6 +396,15 @@
             </el-form-item>
             <el-form-item label="UDP转发">
               <el-switch v-model="nodeForm.UDP" />
+            </el-form-item>
+            <el-form-item label="上行带宽(Mbps)">
+              <el-input-number v-model="nodeForm.Up" :min="1" :max="1000" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="下行带宽(Mbps)">
+              <el-input-number v-model="nodeForm.Down" :min="1" :max="1000" style="width: 100%" />
+            </el-form-item>
+            <el-form-item label="跳跃间隔(秒)">
+              <el-input-number v-model="nodeForm.HopInterval" :min="1" :max="3600" style="width: 100%" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -503,7 +567,20 @@ const nodeForm = ref({
   Host: '',
   TLS: true,
   SkipCert: false,
-  UDP: true
+  UDP: true,
+  Up: 30,
+  Down: 30,
+  HopInterval: 60,
+  Flow: '',
+  ServerName: '',
+  PublicKey: '',
+  ShortID: '',
+  ClientFingerprint: 'safari',
+  Fingerprint: '',
+  RealityShow: false,
+  RealityDebug: false,
+  Address: '',
+  AlterId: ''
 })
 
 const getTypeLabel = (type) => {
@@ -707,7 +784,8 @@ const parseNodeLink = (link) => {
         Username: parts[2],
         Password: parts[3],
         Name: parts[4] || generateAutoName(),
-        Rename: parts[4] || ''
+        Rename: parts[4] || '',
+        Address: ''
       }
     }
     // 尝试 | 分隔符
@@ -720,7 +798,8 @@ const parseNodeLink = (link) => {
         Username: parts[2],
         Password: parts[3],
         Name: parts[4] || generateAutoName(),
-        Rename: parts[4] || ''
+        Rename: parts[4] || '',
+        Address: ''
       }
     }
     return null
@@ -851,6 +930,7 @@ const parseSSLink = (link, baseNode) => {
       Port: port,
       Cipher: method,
       Password: password,
+      Address: '',
       Name: name || baseNode.Name
     }
   } catch (error) {
@@ -904,6 +984,7 @@ const parseVMessLink = (link, baseNode) => {
       Network: config.net || config.network || 'tcp',
       Path: config.path || '',
       Host: config.host || config.sni || '',
+      Address: config.address || '',
       TLS: config.tls === 'tls' || config.security === 'tls' || config.tls === true,
       Name: config.ps || config.remarks || baseNode.Name
     }
@@ -924,6 +1005,7 @@ const parseTrojanLink = (link, baseNode) => {
       Password: decodeURIComponent(url.username),
       SNI: url.searchParams.get('sni') || url.hostname,
       AllowInsecure: url.searchParams.get('allowInsecure') === '1',
+      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -936,16 +1018,31 @@ const parseTrojanLink = (link, baseNode) => {
 const parseVLESSLink = (link, baseNode) => {
   try {
     const url = new URL(link)
+    const security = url.searchParams.get('security') || 'none'
+    
     return {
       Type: 'vless',
       Server: url.hostname,
       Port: parseInt(url.port) || 443,
       UUID: decodeURIComponent(url.username),
       Network: url.searchParams.get('type') || 'tcp',
-      Security: url.searchParams.get('security') || 'none',
+      Security: security,
       Path: url.searchParams.get('path') || '',
       Host: url.searchParams.get('host') || '',
       SNI: url.searchParams.get('sni') || '',
+      TLS: security === 'tls' || security === 'reality',
+      UDP: true, // VLESS 默认启用 UDP
+      Cipher: 'auto', // VLESS 默认加密方式
+      AlterId: '0',   // VLESS 默认 alterId
+      Flow: url.searchParams.get('flow') || '',
+      ServerName: url.searchParams.get('servername') || '',
+      PublicKey: url.searchParams.get('pbk') || '',
+      ShortID: url.searchParams.get('sid') || '',
+      ClientFingerprint: url.searchParams.get('fp') || 'safari', // 默认指纹
+      Fingerprint: url.searchParams.get('fp') || 'safari', // Reality 指纹
+      RealityShow: false,
+      RealityDebug: false,
+      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -964,6 +1061,7 @@ const parseSocksLink = (link, baseNode) => {
       Port: parseInt(url.port) || 1080,
       Username: decodeURIComponent(url.username) || '',
       Password: decodeURIComponent(url.password) || '',
+      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -984,8 +1082,12 @@ const parseHysteria2Link = (link, baseNode) => {
       Server: url.hostname,
       Port: parseInt(url.port) || 443,
       Password: password,
-      SNI: url.searchParams.get('sni') || '',
-      Insecure: url.searchParams.get('insecure') === '1',
+      Host: url.searchParams.get('sni') || '', // SNI 映射到 Host 字段
+      SkipCert: url.searchParams.get('insecure') === '1', // insecure 映射到 SkipCert 字段
+      Up: parseInt(url.searchParams.get('up')) || 30, // 默认上行带宽 30
+      Down: parseInt(url.searchParams.get('down')) || 30, // 默认下行带宽 30
+      HopInterval: parseInt(url.searchParams.get('hop-interval')) || 60, // 默认跳跃间隔 60
+      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -1139,8 +1241,18 @@ const handleEdit = (row) => {
     SkipCert: row.skipCert || false,
     UDP: row.udp || false,
     ALPN: row.alpn || '',
+    Address: row.address || '',
+    AlterId: row.alterId || '',
     ExtraConfig: row.extraConfig || '',
-    Rename: row.rename || ''
+    Rename: row.rename || '',
+    Flow: row.flow || '',
+    ServerName: row.serverName || '',
+    PublicKey: row.publicKey || '',
+    ShortID: row.shortId || '',
+    ClientFingerprint: row.clientFingerprint || 'safari',
+    Fingerprint: row.fingerprint || '',
+    RealityShow: row.realityShow || false,
+    RealityDebug: row.realityDebug || false
   }
   formDialogVisible.value = true
 }
@@ -1184,7 +1296,20 @@ const handleSave = async () => {
     udp: nodeForm.value.UDP,
     alpn: nodeForm.value.ALPN || '',
     extra_config: nodeForm.value.ExtraConfig || '',
-    rename: nodeForm.value.Rename || ''
+    rename: nodeForm.value.Rename || '',
+    up: nodeForm.value.Up || 30,
+    down: nodeForm.value.Down || 30,
+    hop_interval: nodeForm.value.HopInterval || 60,
+    flow: nodeForm.value.Flow || '',
+    server_name: nodeForm.value.ServerName || '',
+    public_key: nodeForm.value.PublicKey || '',
+    short_id: nodeForm.value.ShortID || '',
+    client_fingerprint: nodeForm.value.ClientFingerprint || 'safari',
+    fingerprint: nodeForm.value.Fingerprint || '',
+    reality_show: nodeForm.value.RealityShow || false,
+    reality_debug: nodeForm.value.RealityDebug || false,
+    address: nodeForm.value.Address || '',
+    alterId: nodeForm.value.AlterId || ''
   }
 
   if (isEdit.value) {

@@ -222,6 +222,10 @@
               </el-option>
             </el-option-group>
           </el-select>
+          <!-- 节点备注显示 -->
+          <div v-if="ruleForm.TargetType === 'node' && selectedNodeRemark" class="node-remark">
+            <el-tag size="small" type="info">备注: {{ selectedNodeRemark }}</el-tag>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -306,6 +310,9 @@ const ruleForm = ref({
   Target: 'PROXY',
   TargetType: ''
 })
+
+// 当前选中节点的备注信息
+const selectedNodeRemark = ref('')
 
 // 解析目标显示名称
 const getTargetDisplayName = (row) => {
@@ -412,11 +419,22 @@ const handleTargetChange = (value) => {
   // Only update TargetType, keep Target as-is for select display
   if (value && value.startsWith('node:')) {
     ruleForm.value.TargetType = 'node'
+    // 提取节点ID，获取备注信息
+    const parts = value.split(':')
+    if (parts.length >= 2) {
+      const nodeId = parseInt(parts[1], 10)
+      const node = nodes.value.find(n => n.id === nodeId)
+      selectedNodeRemark.value = node?.rename || ''
+    } else {
+      selectedNodeRemark.value = ''
+    }
   } else if (value && value.startsWith('group:')) {
     ruleForm.value.TargetType = 'group'
+    selectedNodeRemark.value = ''
   } else {
     // Built-in target (PROXY, DIRECT, REJECT)
     ruleForm.value.TargetType = 'builtin'
+    selectedNodeRemark.value = ''
   }
   // Target value is kept as select option value (node:ID:Name or group:ID:Name or builtin value)
   ruleForm.value.Target = value
@@ -438,24 +456,31 @@ const showCreateDialog = async () => {
 const handleEdit = async (row) => {
   isEdit.value = true
   editId.value = row.id
+  // 先加载节点数据
+  await loadNodes()
   // Build Target value for select dropdown
   let targetValue = row.target || 'PROXY'
-  if (row.target_type === 'node') {
-    // Find node by ID to get the name
-    const node = nodes.value.find(n => String(n.id) === String(row.target_id))
+  let nodeRemark = ''
+  // 后端返回的是 targetType（驼峰命名）
+  const targetType = row.targetType || row.target_type
+  if (targetType === 'node') {
+    // 后端只返回节点名称，需要通过名称查找节点
+    const node = nodes.value.find(n => n.name === row.target)
     if (node) {
       targetValue = `node:${node.id}:${node.name}`
+      nodeRemark = node.rename || ''
     }
-  } else if (row.target_type === 'group') {
+  } else if (targetType === 'group') {
     // Find group by ID to get the name
   }
   ruleForm.value = {
     Type: row.type,
     Payload: row.payload,
     Target: targetValue,
-    TargetType: row.target_type || 'builtin' // Default to builtin for backward compatibility
+    TargetType: targetType || 'builtin' // Default to builtin for backward compatibility
   }
-  await loadNodes()
+  // 设置节点备注信息
+  selectedNodeRemark.value = nodeRemark
   formDialogVisible.value = true
 }
 
@@ -780,6 +805,14 @@ onMounted(async () => {
 
 .form-input {
   width: 100%;
+}
+
+.node-remark {
+  margin-top: 10px;
+  padding: 5px 10px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  display: inline-block;
 }
 
 .form-hint {

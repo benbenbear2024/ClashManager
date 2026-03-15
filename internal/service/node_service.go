@@ -31,14 +31,35 @@ func (s *NodeService) ListNodes() ([]model.Node, error) {
 			UDP:      proxy.UDP,
 			Username: proxy.Username,
 			UUID:     proxy.UUID,
+			AlterId:  proxy.AlterId,
 			Network:  proxy.Network,
 			TLS:      proxy.TLS,
 			SkipCert: proxy.SkipCert,
 			Path:     proxy.Path,
 			Host:     proxy.Host,
 			ALPN:     proxy.ALPN,
+			Address:  proxy.Address,
 			Rename:   proxy.Rename,
 		}
+
+		// 处理 Reality 相关字段
+		if proxy.RealityOpts != nil {
+			node.PublicKey = proxy.RealityOpts.PublicKey
+			node.ShortID = proxy.RealityOpts.ShortID
+			node.ServerName = proxy.RealityOpts.ServerName
+			node.Fingerprint = proxy.RealityOpts.Fingerprint
+			node.RealityShow = proxy.RealityOpts.Show
+			node.RealityDebug = proxy.RealityOpts.Debug
+		}
+
+		// 处理其他字段
+		node.Up = proxy.Up
+		node.Down = proxy.Down
+		node.HopInterval = proxy.HopInterval
+		node.Flow = proxy.Flow
+		node.ServerName = proxy.ServerName
+		node.ClientFingerprint = proxy.ClientFingerprint
+
 		nodes = append(nodes, node)
 	}
 
@@ -52,22 +73,54 @@ func (s *NodeService) CreateNode(node *model.Node) error {
 	}
 
 	proxy := config.ProxyConfig{
-		Name:     node.Name,
-		Type:     node.Type,
-		Server:   node.Server,
-		Port:     node.Port,
-		Cipher:   node.Cipher,
-		Password: node.Password,
-		UDP:      node.UDP,
-		Username: node.Username,
-		UUID:     node.UUID,
-		Network:  node.Network,
-		TLS:      node.TLS,
-		SkipCert: node.SkipCert,
-		Path:     node.Path,
-		Host:     node.Host,
-		ALPN:     node.ALPN,
-		Rename:   node.Rename,
+		Name:              node.Name,
+		Type:              node.Type,
+		Server:            node.Server,
+		Port:              node.Port,
+		Cipher:            node.Cipher,
+		Password:          node.Password,
+		UDP:               node.UDP,
+		Username:          node.Username,
+		Network:           node.Network,
+		TLS:               node.TLS,
+		SkipCert:          node.SkipCert,
+		Path:              node.Path,
+		Host:              node.Host,
+		ALPN:              node.ALPN,
+		Address:           node.Address,
+		Rename:            node.Rename,
+		Up:                node.Up,
+		Down:              node.Down,
+		HopInterval:       node.HopInterval,
+		Flow:              node.Flow,
+		ServerName:        node.ServerName,
+		ClientFingerprint: node.ClientFingerprint,
+	}
+
+	// 根据节点类型设置特定字段
+	if node.Type == "vmess" || node.Type == "vless" {
+		proxy.UUID = node.UUID
+		proxy.AlterId = node.AlterId
+	}
+
+	// For trojan and hysteria2 nodes, set SNI from Host
+	if node.Type == "trojan" || node.Type == "hysteria2" {
+		proxy.SNI = node.Host
+	}
+
+	// For vless nodes, set SNI from Host and handle Reality
+	if node.Type == "vless" {
+		proxy.SNI = node.Host
+		if node.PublicKey != "" || node.ShortID != "" || node.ServerName != "" || node.Fingerprint != "" {
+			proxy.RealityOpts = &config.RealityOpts{
+				PublicKey:   node.PublicKey,
+				ShortID:     node.ShortID,
+				ServerName:  node.ServerName,
+				Fingerprint: node.Fingerprint,
+				Show:        node.RealityShow,
+				Debug:       node.RealityDebug,
+			}
+		}
 	}
 
 	cfg.Proxies = append(cfg.Proxies, proxy)
@@ -98,14 +151,50 @@ func (s *NodeService) UpdateNode(id uint, node *model.Node) error {
 	proxy.Password = node.Password
 	proxy.UDP = node.UDP
 	proxy.Username = node.Username
-	proxy.UUID = node.UUID
 	proxy.Network = node.Network
 	proxy.TLS = node.TLS
 	proxy.SkipCert = node.SkipCert
 	proxy.Path = node.Path
 	proxy.Host = node.Host
+
+	// 根据节点类型设置特定字段
+	if node.Type == "vmess" || node.Type == "vless" {
+		proxy.UUID = node.UUID
+		proxy.AlterId = node.AlterId
+	} else {
+		proxy.UUID = ""
+		proxy.AlterId = ""
+	}
+
+	// For trojan and hysteria2 nodes, set SNI from Host
+	if node.Type == "trojan" || node.Type == "hysteria2" {
+		proxy.SNI = node.Host
+	}
+	// For vless nodes, set SNI from Host and handle Reality
+	if node.Type == "vless" {
+		proxy.SNI = node.Host
+		if node.PublicKey != "" || node.ShortID != "" || node.ServerName != "" || node.Fingerprint != "" {
+			proxy.RealityOpts = &config.RealityOpts{
+				PublicKey:   node.PublicKey,
+				ShortID:     node.ShortID,
+				ServerName:  node.ServerName,
+				Fingerprint: node.Fingerprint,
+				Show:        node.RealityShow,
+				Debug:       node.RealityDebug,
+			}
+		} else {
+			proxy.RealityOpts = nil
+		}
+	}
 	proxy.ALPN = node.ALPN
+	proxy.Address = node.Address
 	proxy.Rename = node.Rename
+	proxy.Up = node.Up
+	proxy.Down = node.Down
+	proxy.HopInterval = node.HopInterval
+	proxy.Flow = node.Flow
+	proxy.ServerName = node.ServerName
+	proxy.ClientFingerprint = node.ClientFingerprint
 
 	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %v", err)
