@@ -8,6 +8,7 @@
             <span>节点列表</span>
           </div>
           <div class="header-right">
+            <el-button type="info" :icon="Compass" @click="handleBatchTest" :disabled="selectedNodes.length === 0">一键检测</el-button>
             <el-button type="warning" :icon="Edit" @click="showBatchEditDialog" :disabled="selectedNodes.length === 0">批量编辑</el-button>
             <el-button type="danger" :icon="Delete" @click="handleBatchDelete" :disabled="selectedNodes.length === 0">批量删除</el-button>
             <el-button type="primary" :icon="Upload" @click="showImportDialog">导入节点</el-button>
@@ -33,25 +34,33 @@
         </el-table-column>
         <el-table-column prop="server" label="服务器" min-width="100" show-overflow-tooltip />
         <el-table-column prop="port" label="端口" min-width="70" />
-        <el-table-column prop="network" label="传输" min-width="80" />
-        <el-table-column label="来源" min-width="120">
+        <el-table-column label="延迟" min-width="80">
           <template #default="{ row }">
-            <el-tag v-if="row.source === 'subscription'" type="warning" size="small">
-              {{ row.sourceName || '订阅' }}
-            </el-tag>
-            <el-tag v-else type="info" size="small">手动</el-tag>
+            <div v-if="nodeDelays[row.id] !== undefined">
+              <el-tag :type="getNodeDelayType(nodeDelays[row.id])" size="small">
+                {{ nodeDelays[row.id] }}ms
+              </el-tag>
+            </div>
+            <div v-else>
+              <el-tag type="info" size="small">-</el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" min-width="70">
+        <el-table-column label="地区" min-width="80">
           <template #default="{ row }">
-            <el-tag :type="row.tls ? 'success' : 'info'" size="small">
-              {{ row.tls ? 'TLS' : '普通' }}
-            </el-tag>
+            <div v-if="nodeLocations[row.id] !== undefined">
+              <el-tag size="small">
+                {{ nodeLocations[row.id] }}
+              </el-tag>
+            </div>
+            <div v-else>
+              <el-tag type="info" size="small">-</el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="操作" min-width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="success" link @click="handleExport(row)">导出</el-button>
+            <el-button type="success" link @click="handleTestNode(row)">检测</el-button>
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
@@ -516,8 +525,9 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Delete, Edit, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Plus, Upload, Delete, Edit, ArrowLeft, ArrowRight, Compass } from '@element-plus/icons-vue'
 import { getNodes, createNode, updateNode, deleteNode, importNode, exportNode } from '@/api/nodes'
+import { getConfigContent } from '@/api/config'
 
 const nodes = ref([])
 const selectedNodes = ref([])
@@ -593,6 +603,85 @@ const getTypeLabel = (type) => {
     socks5: 'SOCKS5'
   }
   return labels[type] || type
+}
+
+// 延迟类型映射
+const getNodeDelayType = (delay) => {
+  if (delay < 100) return 'success'
+  if (delay < 200) return 'warning'
+  return 'danger'
+}
+
+// 节点延迟和地区数据
+const nodeDelays = ref({})
+const nodeLocations = ref({})
+
+// 从 mihomo 获取节点延迟
+const getNodeDelay = async (nodeId) => {
+  try {
+    // 尝试从配置文件获取 mihomo 端口
+    let mihomoPort = '9090'
+    try {
+      const config = await getConfigContent()
+      // 简单解析 YAML 中的 external-controller 字段
+      const lines = config.content.split('\n')
+      for (const line of lines) {
+        if (line.includes('external-controller')) {
+          const parts = line.split(':')
+          if (parts.length >= 2) {
+            const portMatch = parts[parts.length - 1].trim().match(/\d+/)
+            if (portMatch) {
+              mihomoPort = portMatch[0]
+              break
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('解析配置文件失败:', error)
+    }
+    
+    const response = await fetch(`http://localhost:${mihomoPort}/proxies/${nodeId}/delay`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.delay
+    }
+  } catch (error) {
+    console.error('获取节点延迟失败:', error)
+  }
+  return -1
+}
+
+// 获取节点地区
+const getNodeLocation = async (nodeId) => {
+  try {
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (node && node.server) {
+      // 使用 ip-api.com 免费 API 查询 IP 地理位置
+      const response = await fetch(`http://ip-api.com/json/${node.server}?fields=country,regionName,city`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.status === 'success') {
+          if (data.city) {
+            return `${data.country} ${data.regionName} ${data.city}`
+          } else if (data.regionName) {
+            return `${data.country} ${data.regionName}`
+          } else if (data.country) {
+            return data.country
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('获取节点地区失败:', error)
+  }
+  return '未知'
 }
 
 const loadNodes = async () => {
@@ -1332,40 +1421,55 @@ const handleDelete = async (row) => {
   loadNodes()
 }
 
-const handleExport = async (row) => {
+const handleTestNode = async (row) => {
   try {
-    const result = await exportNode(row.id)
-    const link = result.link
-
-    // 复制到剪贴板
-    await navigator.clipboard.writeText(link)
-    ElMessage.success('节点分享链接已复制到剪贴板')
-
-    // 可选：同时显示链接让用户确认
-    console.log('导出的节点链接:', link)
-  } catch (error) {
-    // 如果剪贴板复制失败，显示链接让用户手动复制
-    try {
-      const result = await exportNode(row.id)
-      const link = result.link
-
-      ElMessageBox.alert(
-        link,
-        '节点分享链接',
-        {
-          confirmButtonText: '确定',
-          type: 'success',
-          inputType: 'textarea',
-          showInput: false,
-          dangerouslyUseHTMLString: false,
-          message: link,
-          customClass: 'export-link-dialog'
-        }
-      ).catch(() => {})
-    } catch (err) {
-      console.error('导出失败:', err)
-      ElMessage.error('导出失败：' + (err.response?.data?.error || err.message))
+    ElMessage.info(`正在检测节点: ${row.name}`)
+    
+    const delay = await getNodeDelay(row.id)
+    if (delay !== -1) {
+      nodeDelays.value[row.id] = delay
     }
+    
+    const location = await getNodeLocation(row.id)
+    nodeLocations.value[row.id] = location
+    
+    if (delay !== -1) {
+      ElMessage.success(`节点 ${row.name} 检测完成: ${delay}ms, ${location}`)
+    } else {
+      ElMessage.warning(`节点 ${row.name} 延迟检测失败，地区: ${location}`)
+    }
+  } catch (error) {
+    console.error('检测节点失败:', error)
+    ElMessage.error(`检测节点失败: ${error.message}`)
+  }
+}
+
+const handleBatchTest = async () => {
+  if (selectedNodes.value.length === 0) {
+    ElMessage.warning('请先选择要检测的节点')
+    return
+  }
+  
+  try {
+    ElMessage.info(`开始检测 ${selectedNodes.value.length} 个节点...`)
+    
+    for (const nodeId of selectedNodes.value) {
+      const node = nodes.value.find(n => n.id === nodeId)
+      if (node) {
+        const delay = await getNodeDelay(nodeId)
+        if (delay !== -1) {
+          nodeDelays.value[nodeId] = delay
+        }
+        
+        const location = await getNodeLocation(nodeId)
+        nodeLocations.value[nodeId] = location
+      }
+    }
+    
+    ElMessage.success(`批量检测完成`)
+  } catch (error) {
+    console.error('批量检测失败:', error)
+    ElMessage.error(`批量检测失败: ${error.message}`)
   }
 }
 

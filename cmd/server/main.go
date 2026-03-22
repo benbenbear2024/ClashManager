@@ -2,14 +2,17 @@ package main
 
 import (
 	"clash-manager/internal/api"
+	"clash-manager/internal/utils"
 	"flag"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"clash-manager/web"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +21,17 @@ func main() {
 	flag.Parse()
 
 	serverPort := formatPort(*portPtr)
+
+	// 检查端口是否被占用，如果是则强制结束进程
+	portNum, err := strconv.Atoi(strings.TrimPrefix(serverPort, ":"))
+	if err == nil {
+		killed, err := utils.CheckAndKillPortProcess(portNum)
+		if err != nil {
+			log.Printf("Warning: %v", err)
+		} else if killed {
+			log.Printf("Successfully killed process occupying port %d", portNum)
+		}
+	}
 
 	r := gin.Default()
 	r.RedirectTrailingSlash = false

@@ -108,6 +108,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="payload" label="匹配内容" min-width="200" show-overflow-tooltip />
+        <el-table-column label="拨号状态" min-width="100">
+          <template #default="{ row }">
+            <div v-if="getRuleDialingStatus(row)">
+              <el-tag :type="getRuleDialingStatus(row).type" size="small">
+                {{ getRuleDialingStatus(row).text }}
+              </el-tag>
+            </div>
+            <div v-else>
+              <el-tag type="info" size="small">-</el-tag>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="target" label="目标" min-width="140">
           <template #default="{ row }">
             <div class="target-cell">
@@ -215,8 +227,11 @@
                 :value="`node:${node.id}:${node.name}`"
               >
                 <div class="option-content-flex">
-                  <el-icon><Connection /></el-icon>
-                  <span class="option-name">{{ node.name }}</span>
+                  <div class="option-left">
+                    <el-icon><Connection /></el-icon>
+                    <span class="option-name">{{ node.name }}</span>
+                    <span v-if="node.rename" class="option-rename">{{ node.rename }}</span>
+                  </div>
                   <el-tag size="small" class="option-type-tag">{{ node.type }}</el-tag>
                 </div>
               </el-option>
@@ -291,6 +306,7 @@ import {
 } from '@element-plus/icons-vue'
 import { getRules, createRule, updateRule, deleteRule, importRules } from '@/api/rules'
 import { getNodes } from '@/api/nodes'
+import { checkL2TPConnection } from '@/api/mihomo'
 
 const rules = ref([])
 const nodes = ref([])
@@ -303,6 +319,9 @@ const loading = ref(false)
 const importDialogVisible = ref(false)
 const importContent = ref('')
 const importing = ref(false)
+
+// L2TP连接状态缓存
+const l2tpConnectionStatus = ref({})
 
 const ruleForm = ref({
   Type: 'DOMAIN-SUFFIX',
@@ -330,6 +349,51 @@ const getNodeRemark = (row) => {
   // 查找节点
   const node = nodes.value.find(n => n.name === row.target)
   return node?.rename || ''
+}
+
+// 获取规则拨号状态
+const getRuleDialingStatus = (row) => {
+  const targetType = row.targetType || row.target_type
+  const target = row.target
+  
+  // 只有节点类型才检查拨号状态
+  if (targetType !== 'node') {
+    return null
+  }
+  
+  // 从缓存中读取状态
+  const connected = l2tpConnectionStatus.value[target]
+  if (connected === undefined) {
+    return null
+  }
+  
+  return {
+    type: connected ? 'success' : 'danger',
+    text: connected ? '拨号成功' : '未连接'
+  }
+}
+
+// 批量检查节点拨号状态
+const checkAllNodesDialingStatus = async () => {
+  // 获取所有唯一的节点名称
+  const nodeNames = new Set()
+  rules.value.forEach(rule => {
+    const targetType = rule.targetType || rule.target_type
+    if (targetType === 'node' && rule.target) {
+      nodeNames.add(rule.target)
+    }
+  })
+  
+  // 批量检查每个节点的连接状态
+  for (const nodeName of nodeNames) {
+    try {
+      const result = await checkL2TPConnection(nodeName)
+      l2tpConnectionStatus.value[nodeName] = result.connected
+    } catch (error) {
+      console.error('Check L2TP connection error:', error)
+      l2tpConnectionStatus.value[nodeName] = false
+    }
+  }
 }
 
 // 搜索和过滤
@@ -398,6 +462,9 @@ const loadRules = async () => {
     const result = await getRules(params)
     rules.value = result.rules || []
     total.value = result.total || 0
+    
+    // 检查所有节点的拨号状态
+    await checkAllNodesDialingStatus()
   } catch (error) {
     console.error('Load rules error:', error)
     ElMessage.error('加载规则失败')
@@ -835,19 +902,35 @@ onMounted(async () => {
 .option-content-flex {
   display: flex;
   align-items: center;
-  gap: 8px;
   flex: 1;
+  justify-content: space-between;
+}
+
+.option-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
 }
 
 .option-name {
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.option-rename {
+  color: #67c23a;
+  font-size: 12px;
+  margin-left: 10px;
+  background-color: #f0f9eb;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .option-type-tag {
   flex-shrink: 0;
+  margin-left: 10px;
 }
 
 .option-text {

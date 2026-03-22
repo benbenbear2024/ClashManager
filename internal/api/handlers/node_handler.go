@@ -12,11 +12,15 @@ import (
 )
 
 type NodeHandler struct {
-	Service *service.NodeService
+	Service       *service.NodeService
+	MihomoService *service.MihomoService
 }
 
 func NewNodeHandler() *NodeHandler {
-	return &NodeHandler{Service: service.NewNodeService()}
+	return &NodeHandler{
+		Service:       service.NewNodeService(),
+		MihomoService: service.NewMihomoService(),
+	}
 }
 
 func (h *NodeHandler) ListNodes(c *gin.Context) {
@@ -38,6 +42,10 @@ func (h *NodeHandler) CreateNode(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusCreated, node)
 }
 
@@ -59,6 +67,10 @@ func (h *NodeHandler) UpdateNode(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusOK, node)
 }
 
@@ -73,6 +85,10 @@ func (h *NodeHandler) DeleteNode(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusNoContent, nil)
 }
 
@@ -119,6 +135,9 @@ func (h *NodeHandler) ImportNode(c *gin.Context) {
 		return
 	}
 
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusCreated, node)
 }
 
@@ -147,4 +166,11 @@ func (h *NodeHandler) ExportNode(c *gin.Context) {
 		"name": node.Name,
 		"type": node.Type,
 	})
+}
+
+// reloadMihomo 重载mihomo配置
+func (h *NodeHandler) reloadMihomo() {
+	if err := h.MihomoService.Reload(); err != nil {
+		fmt.Printf("Failed to reload mihomo config: %v\n", err)
+	}
 }

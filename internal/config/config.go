@@ -7,7 +7,7 @@ import (
 
 const (
 	ServerPort = ":8090"
-	MihomoPath = "data/mihomo_config.yaml"
+	MihomoPath = "/etc/mihomo/config.yaml"
 )
 
 func GetDBPath() string {

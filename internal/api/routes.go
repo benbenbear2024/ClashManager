@@ -11,6 +11,7 @@ func SetupRoutes(r *gin.Engine) {
 	ruleHandler := handlers.NewRuleHandler()
 	sourceHandler := handlers.NewSubscriptionSourceHandler()
 	settingsHandler := handlers.NewSettingsHandler()
+	mihomoHandler := handlers.NewMihomoHandler()
 
 	api := r.Group("/api")
 	{
@@ -38,5 +39,19 @@ func SetupRoutes(r *gin.Engine) {
 
 		api.GET("/settings/dns", settingsHandler.GetDNS)
 		api.POST("/settings/dns", settingsHandler.SaveDNS)
+
+		// Mihomo 控制
+		api.GET("/settings/mihomo/status", mihomoHandler.GetMihomoStatus)
+		api.POST("/settings/mihomo/start", mihomoHandler.StartMihomo)
+		api.POST("/settings/mihomo/stop", mihomoHandler.StopMihomo)
+		api.POST("/settings/mihomo/reload", mihomoHandler.ReloadMihomo)
+		api.POST("/settings/mihomo/check-connection", mihomoHandler.CheckL2TPConnection)
+
+		// 配置文件编辑
+		api.GET("/settings/config/content", mihomoHandler.GetConfigContent)
+		api.POST("/settings/config/content", mihomoHandler.SaveConfigContent)
+
+		// 系统信息
+		api.GET("/system/info", handlers.SystemHandler())
 	}
 }

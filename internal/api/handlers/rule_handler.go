@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,11 +13,15 @@ import (
 )
 
 type RuleHandler struct {
-	Service *service.RuleService
+	Service       *service.RuleService
+	MihomoService *service.MihomoService
 }
 
 func NewRuleHandler() *RuleHandler {
-	return &RuleHandler{Service: service.NewRuleService()}
+	return &RuleHandler{
+		Service:       service.NewRuleService(),
+		MihomoService: service.NewMihomoService(),
+	}
 }
 
 func (h *RuleHandler) ListRules(c *gin.Context) {
@@ -83,6 +88,10 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusCreated, rule)
 }
 
@@ -97,6 +106,10 @@ func (h *RuleHandler) DeleteRule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusNoContent, nil)
 }
 
@@ -118,6 +131,10 @@ func (h *RuleHandler) UpdateRule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusOK, rule)
 }
 
@@ -206,6 +223,10 @@ func (h *RuleHandler) ImportRules(c *gin.Context) {
 			importCount++
 		}
 	}
+
+	// 重载mihomo配置
+	h.reloadMihomo()
+
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "Rules imported successfully",
 		"import_count": importCount,
@@ -217,4 +238,11 @@ func (h *RuleHandler) GetTags(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"tags": []string{},
 	})
+}
+
+// reloadMihomo 重载mihomo配置
+func (h *RuleHandler) reloadMihomo() {
+	if err := h.MihomoService.Reload(); err != nil {
+		fmt.Printf("Failed to reload mihomo config: %v\n", err)
+	}
 }

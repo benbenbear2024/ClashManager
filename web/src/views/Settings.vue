@@ -10,9 +10,14 @@
             </div>
             <span>DNS 设置</span>
           </div>
-          <el-button type="primary" :icon="Check" @click="handleSave" :loading="saving" size="large">
-            保存配置
-          </el-button>
+          <div class="header-buttons">
+            <el-button :icon="Edit" @click="openConfigEditor" size="large">
+              编辑配置文件
+            </el-button>
+            <el-button type="primary" :icon="Check" @click="handleSave" :loading="saving" size="large">
+              保存配置
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -365,6 +370,98 @@
         </div>
       </div>
     </el-card>
+
+    <!-- Mihomo 控制卡片 -->
+    <el-card shadow="never" class="settings-card" v-if="isLinux">
+      <template #header>
+        <div class="card-header">
+          <div class="header-left">
+            <div class="header-icon">
+              <el-icon><VideoCamera /></el-icon>
+            </div>
+            <span>Mihomo 控制</span>
+          </div>
+        </div>
+      </template>
+
+      <div class="settings-form">
+        <div class="section-wrapper">
+          <div class="section-content">
+            <div class="setting-item">
+              <div class="setting-label">
+                <el-icon><Connection /></el-icon>
+                <span>Mihomo 状态</span>
+              </div>
+              <div class="setting-control">
+                <el-tag :type="mihomoStatus === 'running' ? 'success' : 'info'" size="large">
+                  {{ mihomoStatus === 'running' ? '运行中' : '已停止' }}
+                </el-tag>
+              </div>
+            </div>
+            <div class="mihomo-buttons">
+              <el-button
+                type="primary"
+                :icon="VideoCamera"
+                @click="handleStartMihomo"
+                :loading="mihomoLoading"
+                :disabled="mihomoStatus === 'running'"
+                size="large"
+                class="mihomo-btn"
+              >
+                启动 Mihomo
+              </el-button>
+              <el-button
+                type="danger"
+                :icon="VideoPause"
+                @click="handleStopMihomo"
+                :loading="mihomoLoading"
+                :disabled="mihomoStatus !== 'running'"
+                size="large"
+                class="mihomo-btn"
+              >
+                停止 Mihomo
+              </el-button>
+              <el-button
+                type="warning"
+                :icon="Refresh"
+                @click="handleReloadMihomo"
+                :loading="mihomoLoading"
+                :disabled="mihomoStatus !== 'running'"
+                size="large"
+                class="mihomo-btn"
+              >
+                重载配置
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- 配置文件编辑对话框 -->
+    <el-dialog
+      v-model="configEditorVisible"
+      title="编辑配置文件"
+      width="80%"
+      :close-on-click-modal="false"
+      class="config-editor-dialog"
+    >
+      <el-input
+        v-model="configContent"
+        type="textarea"
+        :rows="20"
+        placeholder="配置文件内容"
+        class="config-textarea"
+      />
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="configEditorVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveConfigContent" :loading="configSaving">
+            保存
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -389,12 +486,29 @@ import {
   Promotion,
   Compass,
   Share,
-  Guide
+  Guide,
+  VideoCamera,
+  VideoPause,
+  Edit,
+  Refresh
 } from '@element-plus/icons-vue'
 import { getDNS, saveDNS } from '@/api/settings'
+import { getMihomoStatus, startMihomo, stopMihomo, reloadMihomo } from '@/api/mihomo'
+import { getConfigContent, saveConfigContent as saveConfigContentAPI } from '@/api/config'
+import { getSystemInfo } from '@/api/system'
 
 const loading = ref(false)
 const saving = ref(false)
+
+// Mihomo 控制
+const isLinux = ref(false)
+const mihomoStatus = ref('stopped')
+const mihomoLoading = ref(false)
+
+// 配置文件编辑
+const configEditorVisible = ref(false)
+const configContent = ref('')
+const configSaving = ref(false)
 
 // 输入框
 const nameserverInput = ref('')
@@ -573,8 +687,110 @@ const handleSave = async () => {
   }
 }
 
-onMounted(() => {
+// 检查系统类型
+const checkSystemType = async () => {
+  try {
+    const data = await getSystemInfo()
+    isLinux.value = data.os === 'linux'
+  } catch (error) {
+    // 失败时回退到userAgent检测
+    isLinux.value = navigator.userAgent.includes('Linux')
+  }
+}
+
+// 加载 Mihomo 状态
+const loadMihomoStatus = async () => {
+  if (!isLinux.value) return
+  
+  try {
+    const data = await getMihomoStatus()
+    mihomoStatus.value = data.status
+  } catch {
+    mihomoStatus.value = 'stopped'
+  }
+}
+
+// 启动 Mihomo
+const handleStartMihomo = async () => {
+  mihomoLoading.value = true
+  try {
+    await startMihomo()
+    ElMessage.success('Mihomo 启动成功')
+    await loadMihomoStatus()
+  } catch (error) {
+    ElMessage.error(`启动失败: ${error.response?.data?.error || '未知错误'}`)
+  } finally {
+    mihomoLoading.value = false
+  }
+}
+
+// 停止 Mihomo
+const handleStopMihomo = async () => {
+  mihomoLoading.value = true
+  try {
+    await stopMihomo()
+    ElMessage.success('Mihomo 停止成功')
+    await loadMihomoStatus()
+  } catch (error) {
+    ElMessage.error(`停止失败: ${error.response?.data?.error || '未知错误'}`)
+  } finally {
+    mihomoLoading.value = false
+  }
+}
+
+// 重载 Mihomo 配置
+const handleReloadMihomo = async () => {
+  mihomoLoading.value = true
+  try {
+    await reloadMihomo()
+    ElMessage.success('Mihomo 配置重载成功')
+    await loadMihomoStatus()
+  } catch (error) {
+    ElMessage.error(`重载失败: ${error.response?.data?.error || '未知错误'}`)
+  } finally {
+    mihomoLoading.value = false
+  }
+}
+
+// 打开配置编辑器
+const openConfigEditor = async () => {
+  try {
+    const data = await getConfigContent()
+    configContent.value = data.content
+    configEditorVisible.value = true
+  } catch (error) {
+    ElMessage.error(`加载配置失败: ${error.response?.data?.error || '未知错误'}`)
+  }
+}
+
+// 保存配置内容
+const saveConfigContent = async () => {
+  configSaving.value = true
+  try {
+    await saveConfigContentAPI(configContent.value)
+    ElMessage.success('配置保存成功')
+    configEditorVisible.value = false
+    
+    // 重载mihomo配置
+    if (isLinux.value && mihomoStatus.value === 'running') {
+      try {
+        await reloadMihomo()
+        ElMessage.success('Mihomo 配置重载成功')
+      } catch (reloadError) {
+        ElMessage.error(`重载配置失败: ${reloadError.response?.data?.error || '未知错误'}`)
+      }
+    }
+  } catch (error) {
+    ElMessage.error(`保存配置失败: ${error.response?.data?.error || '未知错误'}`)
+  } finally {
+    configSaving.value = false
+  }
+}
+
+onMounted(async () => {
   loadDNS()
+  await checkSystemType()
+  loadMihomoStatus()
 })
 </script>
 
@@ -988,5 +1204,78 @@ onMounted(() => {
   left: 0;
   color: #667eea;
   font-weight: bold;
+}
+
+/* Mihomo 控制样式 */
+.mihomo-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 24px;
+  justify-content: center;
+}
+
+.mihomo-btn {
+  width: 160px;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.mihomo-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.mihomo-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .mihomo-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .mihomo-btn {
+    width: 100%;
+    max-width: 200px;
+  }
+}
+
+/* 配置编辑器样式 */
+.config-editor-dialog :deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+.config-textarea :deep(.el-textarea__inner) {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #2c3e50;
+  background-color: #f8f9fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 16px;
+  min-height: 400px;
+}
+
+.config-textarea :deep(.el-textarea__inner):focus {
+  background-color: #fff;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 </style>

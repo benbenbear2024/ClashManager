@@ -90,6 +90,12 @@ type DNSConfig struct {
 }
 
 func GetConfigPath() string {
+	mihomoPath := MihomoPath
+
+	if _, err := os.Stat(mihomoPath); err == nil {
+		return mihomoPath
+	}
+
 	cwd, _ := os.Getwd()
 	return filepath.Join(cwd, "data", "config.yaml")
 }
@@ -123,8 +129,11 @@ func SaveConfig(config *MihomoConfig) error {
 		return fmt.Errorf("failed to write config file: %v", err)
 	}
 
-	if err := CopyConfigToMihomo(); err != nil {
-		return fmt.Errorf("failed to copy config to Mihomo: %v", err)
+	// 如果当前配置路径不是 MihomoPath，则复制到 MihomoPath
+	if configPath != MihomoPath {
+		if err := CopyConfigToMihomo(); err != nil {
+			return fmt.Errorf("failed to copy config to Mihomo: %v", err)
+		}
 	}
 
 	return nil
