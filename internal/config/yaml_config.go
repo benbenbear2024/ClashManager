@@ -119,6 +119,9 @@ func LoadConfig() (*MihomoConfig, error) {
 func SaveConfig(config *MihomoConfig) error {
 	configPath := GetConfigPath()
 
+	// 根据proxies自动生成rules
+	config.Rules = generateRules(config.Proxies)
+
 	// 创建自定义 YAML 编码器，使用内联格式
 	data, err := marshalWithInlineProxies(config)
 	if err != nil {
@@ -139,17 +142,36 @@ func SaveConfig(config *MihomoConfig) error {
 	return nil
 }
 
+// generateRules 根据proxies生成对应的rules
+func generateRules(proxies []ProxyConfig) []string {
+	rules := make([]string, 0, len(proxies))
+	for i, proxy := range proxies {
+		// 生成SRC-IP-CIDR规则，IP从10.0.10.2开始递增
+		rule := fmt.Sprintf("SRC-IP-CIDR,10.0.10.%d/32,%s", i+2, proxy.Name)
+		rules = append(rules, rule)
+	}
+	return rules
+}
+
 // marshalWithInlineProxies 使用内联格式序列化配置
 func marshalWithInlineProxies(config *MihomoConfig) ([]byte, error) {
-	// 创建一个临时结构，不包含 proxies
+	// 创建一个临时结构，不包含 proxies 和 rules
 	tempConfig := *config
 	tempProxies := tempConfig.Proxies
+	tempRules := tempConfig.Rules
 	tempConfig.Proxies = nil
+	tempConfig.Rules = nil
 
-	// 序列化除 proxies 外的内容
+	// 序列化除 proxies 和 rules 外的内容
 	baseData, err := yaml.Marshal(&tempConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	// 序列化 rules 为内联格式
+	rulesData := []byte("rules:\n")
+	for _, rule := range tempRules {
+		rulesData = append(rulesData, []byte("    - "+rule+"\n")...)
 	}
 
 	// 序列化 proxies 为内联格式
@@ -226,8 +248,9 @@ func marshalWithInlineProxies(config *MihomoConfig) ([]byte, error) {
 		proxiesData = append(proxiesData, []byte("}\n")...)
 	}
 
-	// 拼接两部分
-	result := append(baseData, proxiesData...)
+	// 拼接三部分: baseData + rulesData + proxiesData
+	result := append(baseData, rulesData...)
+	result = append(result, proxiesData...)
 	return result, nil
 }
 
