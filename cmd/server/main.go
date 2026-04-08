@@ -2,6 +2,7 @@ package main
 
 import (
 	"clash-manager/internal/api"
+	"clash-manager/internal/config"
 	"clash-manager/internal/utils"
 	"flag"
 	"fmt"
@@ -17,7 +18,8 @@ import (
 )
 
 func main() {
-	portPtr := flag.String("port", "8090", "Server port (default: 8090)")
+	defaultPort := strings.TrimPrefix(config.ServerPort, ":")
+	portPtr := flag.String("port", defaultPort, fmt.Sprintf("Server port (default: %s)", defaultPort))
 	flag.Parse()
 
 	serverPort := formatPort(*portPtr)
@@ -75,7 +77,7 @@ func main() {
 
 func formatPort(port string) string {
 	if port == "" {
-		return ":8090"
+		return config.ServerPort
 	}
 	if port[0] == ':' {
 		return port

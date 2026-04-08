@@ -108,18 +108,6 @@
           </template>
         </el-table-column>
         <el-table-column prop="payload" label="匹配内容" min-width="200" show-overflow-tooltip />
-        <el-table-column label="拨号状态" min-width="100">
-          <template #default="{ row }">
-            <div v-if="getRuleDialingStatus(row)">
-              <el-tag :type="getRuleDialingStatus(row).type" size="small">
-                {{ getRuleDialingStatus(row).text }}
-              </el-tag>
-            </div>
-            <div v-else>
-              <el-tag type="info" size="small">-</el-tag>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column prop="target" label="目标" min-width="140">
           <template #default="{ row }">
             <div class="target-cell">

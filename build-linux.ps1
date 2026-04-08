@@ -174,7 +174,7 @@ echo "  Stop service: systemctl stop clash-manager"
 echo "  Check status: systemctl status clash-manager"
 echo "  Manual run: $INSTALL_DIR/start.sh"
 echo ""
-echo "Access: http://localhost:8090"
+echo "Access: http://localhost:8080"
 echo ""
 '
 
@@ -192,7 +192,7 @@ Deployment Steps:
 Or run manually:
   ./start.sh
 
-Access: http://localhost:8090
+Access: http://localhost:8080
 
 Files:
   - clash-manager: Main program (Linux AMD64)

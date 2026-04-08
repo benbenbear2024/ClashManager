@@ -1,0 +1,357 @@
+mixed-port: 7890
+redir-port: 7892
+tproxy-port: 7893
+authentication:
+    - ""
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: true
+external-controller: :9999
+external-ui: ui
+tun:
+    auto-route: true
+    device: utun
+    dns-hijack:
+        - tcp://8.8.8.8:53
+        - 8.8.8.8:53
+    enable: true
+    stack: system
+experimental:
+    ignore-resolve-fail: true
+    interface-name: en0
+dns:
+    enable: true
+    listen: 0.0.0.0:53
+    enhanced-mode: fake-ip
+    nameserver:
+        - https://dns.alidns.com/dns-query
+        - https://doh.pub/dns-query
+        - 127.0.0.1:53
+    fallback:
+        - https://dns.google/dns-query
+        - https://1.1.1.1/dns-query
+        - https://dns.cloudflare.com/dns-query
+        - 8.8.8.8
+    default-nameserver:
+        - 223.5.5.5
+        - 119.29.29.29
+        - 127.0.0.1:53
+    fake-ip-filter:
+        - '*.lan'
+        - '*.local'
+        - localhost.ptlogin2.qq.com
+store-selected: true
+find-process-mode: "off"
+rules:
+    - SRC-IP-CIDR,10.0.10.2/32,Name1
+    - SRC-IP-CIDR,10.0.10.3/32,Name2
+    - SRC-IP-CIDR,10.0.10.4/32,Name3
+    - SRC-IP-CIDR,10.0.10.5/32,Name4
+    - SRC-IP-CIDR,10.0.10.6/32,Name5
+    - SRC-IP-CIDR,10.0.10.7/32,Name6
+    - SRC-IP-CIDR,10.0.10.8/32,Name7
+    - SRC-IP-CIDR,10.0.10.9/32,Name8
+    - SRC-IP-CIDR,10.0.10.10/32,Name9
+    - SRC-IP-CIDR,10.0.10.11/32,Name10
+    - SRC-IP-CIDR,10.0.10.12/32,Name11
+    - SRC-IP-CIDR,10.0.10.13/32,Name12
+    - SRC-IP-CIDR,10.0.10.14/32,Name13
+    - SRC-IP-CIDR,10.0.10.15/32,Name14
+    - SRC-IP-CIDR,10.0.10.16/32,Name15
+    - SRC-IP-CIDR,10.0.10.17/32,Name16
+    - SRC-IP-CIDR,10.0.10.18/32,Name17
+    - SRC-IP-CIDR,10.0.10.19/32,Name18
+    - SRC-IP-CIDR,10.0.10.20/32,Name19
+    - SRC-IP-CIDR,10.0.10.21/32,Name20
+    - SRC-IP-CIDR,10.0.10.22/32,Name21
+    - SRC-IP-CIDR,10.0.10.23/32,Name22
+    - SRC-IP-CIDR,10.0.10.24/32,Name23
+    - SRC-IP-CIDR,10.0.10.25/32,Name24
+    - SRC-IP-CIDR,10.0.10.26/32,Name25
+    - SRC-IP-CIDR,10.0.10.27/32,Name26
+    - SRC-IP-CIDR,10.0.10.28/32,Name27
+    - SRC-IP-CIDR,10.0.10.29/32,Name28
+    - SRC-IP-CIDR,10.0.10.30/32,Name29
+    - SRC-IP-CIDR,10.0.10.31/32,Name30
+    - SRC-IP-CIDR,10.0.10.32/32,Name31
+    - SRC-IP-CIDR,10.0.10.33/32,Name32
+    - SRC-IP-CIDR,10.0.10.34/32,Name33
+    - SRC-IP-CIDR,10.0.10.35/32,Name34
+    - SRC-IP-CIDR,10.0.10.36/32,Name35
+    - SRC-IP-CIDR,10.0.10.37/32,Name36
+    - SRC-IP-CIDR,10.0.10.38/32,Name37
+    - SRC-IP-CIDR,10.0.10.39/32,Name38
+    - SRC-IP-CIDR,10.0.10.40/32,Name39
+    - SRC-IP-CIDR,10.0.10.41/32,Name40
+    - SRC-IP-CIDR,10.0.10.42/32,Name41
+    - SRC-IP-CIDR,10.0.10.43/32,Name42
+    - SRC-IP-CIDR,10.0.10.44/32,Name43
+    - SRC-IP-CIDR,10.0.10.45/32,Name44
+    - SRC-IP-CIDR,10.0.10.46/32,Name45
+    - SRC-IP-CIDR,10.0.10.47/32,Name46
+    - SRC-IP-CIDR,10.0.10.48/32,Name47
+    - SRC-IP-CIDR,10.0.10.49/32,Name48
+    - SRC-IP-CIDR,10.0.10.50/32,Name49
+    - SRC-IP-CIDR,10.0.10.51/32,Name50
+    - SRC-IP-CIDR,10.0.10.52/32,Name51
+    - SRC-IP-CIDR,10.0.10.53/32,Name52
+    - SRC-IP-CIDR,10.0.10.54/32,Name53
+    - SRC-IP-CIDR,10.0.10.55/32,Name54
+    - SRC-IP-CIDR,10.0.10.56/32,Name55
+    - SRC-IP-CIDR,10.0.10.57/32,Name56
+    - SRC-IP-CIDR,10.0.10.58/32,Name57
+    - SRC-IP-CIDR,10.0.10.59/32,Name58
+    - SRC-IP-CIDR,10.0.10.60/32,Name59
+    - SRC-IP-CIDR,10.0.10.61/32,Name60
+    - SRC-IP-CIDR,10.0.10.62/32,Name61
+    - SRC-IP-CIDR,10.0.10.63/32,Name62
+    - SRC-IP-CIDR,10.0.10.64/32,Name63
+    - SRC-IP-CIDR,10.0.10.65/32,Name64
+    - SRC-IP-CIDR,10.0.10.66/32,Name65
+    - SRC-IP-CIDR,10.0.10.67/32,Name66
+    - SRC-IP-CIDR,10.0.10.68/32,Name67
+    - SRC-IP-CIDR,10.0.10.69/32,Name68
+    - SRC-IP-CIDR,10.0.10.70/32,Name69
+    - SRC-IP-CIDR,10.0.10.71/32,Name70
+    - SRC-IP-CIDR,10.0.10.72/32,Name71
+    - SRC-IP-CIDR,10.0.10.73/32,Name72
+    - SRC-IP-CIDR,10.0.10.74/32,Name73
+    - SRC-IP-CIDR,10.0.10.75/32,Name74
+    - SRC-IP-CIDR,10.0.10.76/32,Name75
+    - SRC-IP-CIDR,10.0.10.77/32,Name76
+    - SRC-IP-CIDR,10.0.10.78/32,Name77
+    - SRC-IP-CIDR,10.0.10.79/32,Name78
+    - SRC-IP-CIDR,10.0.10.80/32,Name79
+    - SRC-IP-CIDR,10.0.10.81/32,Name80
+    - SRC-IP-CIDR,10.0.10.82/32,Name81
+    - SRC-IP-CIDR,10.0.10.83/32,Name82
+    - SRC-IP-CIDR,10.0.10.84/32,Name83
+    - SRC-IP-CIDR,10.0.10.85/32,Name84
+    - SRC-IP-CIDR,10.0.10.86/32,Name85
+    - SRC-IP-CIDR,10.0.10.87/32,Name86
+    - SRC-IP-CIDR,10.0.10.88/32,Name87
+    - SRC-IP-CIDR,10.0.10.89/32,Name88
+    - SRC-IP-CIDR,10.0.10.90/32,Name89
+    - SRC-IP-CIDR,10.0.10.91/32,Name90
+    - SRC-IP-CIDR,10.0.10.92/32,Name91
+    - SRC-IP-CIDR,10.0.10.93/32,Name92
+    - SRC-IP-CIDR,10.0.10.94/32,Name93
+    - SRC-IP-CIDR,10.0.10.95/32,Name94
+    - SRC-IP-CIDR,10.0.10.96/32,Name95
+    - SRC-IP-CIDR,10.0.10.97/32,Name96
+    - SRC-IP-CIDR,10.0.10.98/32,Name97
+    - SRC-IP-CIDR,10.0.10.99/32,Name98
+    - SRC-IP-CIDR,10.0.10.100/32,Name99
+    - SRC-IP-CIDR,10.0.10.101/32,Name100
+    - SRC-IP-CIDR,10.0.10.102/32,Name101
+    - SRC-IP-CIDR,10.0.10.103/32,Name102
+    - SRC-IP-CIDR,10.0.10.104/32,Name103
+    - SRC-IP-CIDR,10.0.10.105/32,Name104
+    - SRC-IP-CIDR,10.0.10.106/32,Name105
+    - SRC-IP-CIDR,10.0.10.107/32,Name106
+    - SRC-IP-CIDR,10.0.10.108/32,Name107
+    - SRC-IP-CIDR,10.0.10.109/32,Name108
+    - SRC-IP-CIDR,10.0.10.110/32,Name109
+    - SRC-IP-CIDR,10.0.10.111/32,Name110
+    - SRC-IP-CIDR,10.0.10.112/32,Name111
+    - SRC-IP-CIDR,10.0.10.113/32,Name112
+    - SRC-IP-CIDR,10.0.10.114/32,Name113
+    - SRC-IP-CIDR,10.0.10.115/32,Name114
+    - SRC-IP-CIDR,10.0.10.116/32,Name115
+    - SRC-IP-CIDR,10.0.10.117/32,Name116
+    - SRC-IP-CIDR,10.0.10.118/32,Name117
+    - SRC-IP-CIDR,10.0.10.119/32,Name118
+    - SRC-IP-CIDR,10.0.10.120/32,Name119
+    - SRC-IP-CIDR,10.0.10.121/32,Name120
+    - SRC-IP-CIDR,10.0.10.122/32,Name121
+    - SRC-IP-CIDR,10.0.10.123/32,Name122
+    - SRC-IP-CIDR,10.0.10.124/32,Name123
+    - SRC-IP-CIDR,10.0.10.125/32,Name124
+    - SRC-IP-CIDR,10.0.10.126/32,Name125
+    - SRC-IP-CIDR,10.0.10.127/32,Name126
+    - SRC-IP-CIDR,10.0.10.128/32,Name127
+    - SRC-IP-CIDR,10.0.10.129/32,Name128
+    - SRC-IP-CIDR,10.0.10.130/32,Name129
+    - SRC-IP-CIDR,10.0.10.131/32,Name130
+    - SRC-IP-CIDR,10.0.10.132/32,Name131
+    - SRC-IP-CIDR,10.0.10.133/32,Name132
+    - SRC-IP-CIDR,10.0.10.134/32,Name133
+    - SRC-IP-CIDR,10.0.10.135/32,Name134
+    - SRC-IP-CIDR,10.0.10.136/32,Name135
+    - SRC-IP-CIDR,10.0.10.137/32,Name136
+    - SRC-IP-CIDR,10.0.10.138/32,Name137
+    - SRC-IP-CIDR,10.0.10.139/32,Name138
+    - SRC-IP-CIDR,10.0.10.140/32,Name139
+    - SRC-IP-CIDR,10.0.10.141/32,Name140
+    - SRC-IP-CIDR,10.0.10.142/32,Name141
+    - SRC-IP-CIDR,10.0.10.143/32,Name142
+    - SRC-IP-CIDR,10.0.10.144/32,Name143
+    - SRC-IP-CIDR,10.0.10.145/32,Name144
+    - SRC-IP-CIDR,10.0.10.146/32,Name145
+    - SRC-IP-CIDR,10.0.10.147/32,Name146
+    - SRC-IP-CIDR,10.0.10.148/32,Name147
+    - SRC-IP-CIDR,10.0.10.149/32,Name148
+    - SRC-IP-CIDR,10.0.10.150/32,Name149
+    - SRC-IP-CIDR,10.0.10.151/32,Name150
+    - SRC-IP-CIDR,10.0.10.152/32,Name151
+    - SRC-IP-CIDR,10.0.10.153/32,Name152
+    - SRC-IP-CIDR,10.0.10.154/32,Name153
+    - SRC-IP-CIDR,10.0.10.155/32,Name154
+    - SRC-IP-CIDR,10.0.10.156/32,Name155
+    - SRC-IP-CIDR,10.0.10.157/32,Name156
+    - SRC-IP-CIDR,10.0.10.158/32,Name157
+    - SRC-IP-CIDR,10.0.10.159/32,Name158
+    - SRC-IP-CIDR,10.0.10.160/32,Name159
+    - SRC-IP-CIDR,10.0.10.161/32,Name160
+    - SRC-IP-CIDR,10.0.10.162/32,Name161
+    - SRC-IP-CIDR,10.0.10.163/32,Name162
+    - SRC-IP-CIDR,10.0.10.164/32,Name163
+    - SRC-IP-CIDR,10.0.10.165/32,Name164
+    - SRC-IP-CIDR,10.0.10.166/32,Name165
+    - SRC-IP-CIDR,10.0.10.167/32,Name166
+    - SRC-IP-CIDR,10.0.10.168/32,Name167
+    - SRC-IP-CIDR,10.0.10.169/32,Name168
+    - SRC-IP-CIDR,10.0.10.170/32,Name169
+    - SRC-IP-CIDR,10.0.10.171/32,Name170
+    - SRC-IP-CIDR,10.0.10.172/32,Name171
+    - SRC-IP-CIDR,10.0.10.173/32,Name172
+    - SRC-IP-CIDR,10.0.10.174/32,Name173
+    - SRC-IP-CIDR,10.0.10.175/32,Name174
+    - SRC-IP-CIDR,10.0.10.176/32,Name175
+    - SRC-IP-CIDR,10.0.10.177/32,Name176
+    - SRC-IP-CIDR,10.0.10.178/32,Name177
+    - SRC-IP-CIDR,10.0.10.179/32,Name178
+    - SRC-IP-CIDR,10.0.10.180/32,Name179
+    - SRC-IP-CIDR,10.0.10.181/32,Name180
+    - SRC-IP-CIDR,10.0.10.182/32,Name181
+    - SRC-IP-CIDR,10.0.10.183/32,Name182
+    - SRC-IP-CIDR,10.0.10.184/32,Name183
+    - SRC-IP-CIDR,10.0.10.185/32,Name184
+    - SRC-IP-CIDR,10.0.10.186/32,Name185
+    - SRC-IP-CIDR,10.0.10.187/32,Name186
+    - SRC-IP-CIDR,10.0.10.188/32,Name187
+    - SRC-IP-CIDR,10.0.10.189/32,Name188
+    - SRC-IP-CIDR,10.0.10.190/32,Name189
+    - SRC-IP-CIDR,10.0.10.191/32,Name190
+    - SRC-IP-CIDR,10.0.10.192/32,Name191
+    - SRC-IP-CIDR,10.0.10.193/32,Name192
+    - SRC-IP-CIDR,10.0.10.194/32,Name193
+    - SRC-IP-CIDR,10.0.10.195/32,Name194
+    - SRC-IP-CIDR,10.0.10.196/32,Name195
+    - SRC-IP-CIDR,10.0.10.197/32,Name196
+    - SRC-IP-CIDR,10.0.10.198/32,Name197
+    - SRC-IP-CIDR,10.0.10.199/32,Name198
+    - SRC-IP-CIDR,10.0.10.200/32,Name199
+    - SRC-IP-CIDR,10.0.10.201/32,Name200
+    - SRC-IP-CIDR,10.0.10.202/32,Name201
+    - SRC-IP-CIDR,10.0.10.203/32,Name202
+    - SRC-IP-CIDR,10.0.10.204/32,Name203
+    - SRC-IP-CIDR,10.0.10.205/32,Name204
+    - SRC-IP-CIDR,10.0.10.206/32,Name205
+    - SRC-IP-CIDR,10.0.10.207/32,Name206
+    - SRC-IP-CIDR,10.0.10.208/32,Name207
+    - SRC-IP-CIDR,10.0.10.209/32,Name208
+    - SRC-IP-CIDR,10.0.10.210/32,Name209
+    - SRC-IP-CIDR,10.0.10.211/32,Name210
+    - SRC-IP-CIDR,10.0.10.212/32,Name211
+    - SRC-IP-CIDR,10.0.10.213/32,Name212
+    - SRC-IP-CIDR,10.0.10.214/32,Name213
+    - SRC-IP-CIDR,10.0.10.215/32,Name214
+    - SRC-IP-CIDR,10.0.10.216/32,Name215
+    - SRC-IP-CIDR,10.0.10.217/32,Name216
+    - SRC-IP-CIDR,10.0.10.218/32,Name217
+    - SRC-IP-CIDR,10.0.10.219/32,Name218
+    - SRC-IP-CIDR,10.0.10.220/32,Name219
+    - SRC-IP-CIDR,10.0.10.221/32,Name220
+    - SRC-IP-CIDR,10.0.10.222/32,Name221
+    - SRC-IP-CIDR,10.0.10.223/32,Name222
+    - SRC-IP-CIDR,10.0.10.224/32,Name223
+    - SRC-IP-CIDR,10.0.10.225/32,Name224
+    - SRC-IP-CIDR,10.0.10.226/32,Name225
+    - SRC-IP-CIDR,10.0.10.227/32,Name226
+    - SRC-IP-CIDR,10.0.10.228/32,Name227
+    - SRC-IP-CIDR,10.0.10.229/32,Name228
+    - SRC-IP-CIDR,10.0.10.230/32,Name229
+    - SRC-IP-CIDR,10.0.10.231/32,Name230
+    - SRC-IP-CIDR,10.0.10.232/32,Name231
+    - SRC-IP-CIDR,10.0.10.233/32,Name232
+    - SRC-IP-CIDR,10.0.10.234/32,Name233
+    - SRC-IP-CIDR,10.0.10.235/32,Name234
+    - SRC-IP-CIDR,10.0.10.236/32,Name235
+    - SRC-IP-CIDR,10.0.10.237/32,Name236
+    - SRC-IP-CIDR,10.0.10.238/32,Name237
+    - SRC-IP-CIDR,10.0.10.239/32,Name238
+    - SRC-IP-CIDR,10.0.10.240/32,Name239
+    - SRC-IP-CIDR,10.0.10.241/32,Name240
+    - SRC-IP-CIDR,10.0.10.242/32,Name241
+    - SRC-IP-CIDR,10.0.10.243/32,Name242
+    - SRC-IP-CIDR,10.0.10.244/32,Name243
+    - SRC-IP-CIDR,10.0.10.245/32,Name244
+    - SRC-IP-CIDR,10.0.10.246/32,Name245
+    - SRC-IP-CIDR,10.0.10.247/32,Name246
+    - SRC-IP-CIDR,10.0.10.248/32,Name247
+    - SRC-IP-CIDR,10.0.10.249/32,Name248
+    - SRC-IP-CIDR,10.0.10.250/32,Name249
+    - SRC-IP-CIDR,10.0.10.251/32,Name250
+    - SRC-IP-CIDR,10.0.10.252/32,Name251
+    - SRC-IP-CIDR,10.0.10.253/32,Name252
+    - SRC-IP-CIDR,10.0.10.254/32,Name253
+proxies:
+    - {name: 'Name1', rename: '🇭🇰香港-01 T 1.0x', type: trojan, server: productandservice.infralinkplus.com, port: 27101, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, udp: true, skip-cert-verify: true, sni: claude.1maxai.com, network: tcp}
+    - {name: 'Name2', rename: '🇭🇰香港-02 T 1.0x', type: trojan, server: productandservice.infralinkplus.com, port: 27102, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, udp: true, skip-cert-verify: true, sni: claude.1maxai.com, network: tcp}
+    - {name: 'Name3', rename: '🇭🇰香港-03 S 1.0x 时段2-7 0.5x', type: ss, server: productandservice.infralinkplus.com, port: 55201, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name4', rename: '🇭🇰香港-04 H 0.1x', type: hysteria2, server: records.hk02.ecmtxt.com, port: 8593, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: records.hy.ecmtxt.com, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name5', rename: '🇭🇰香港-06 H 0.1x', type: hysteria2, server: records.hy.ecmtxt.com, port: 11986, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: records.hy.ecmtxt.com, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name6', rename: '🇯🇵日本-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 27001, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name7', rename: '🇯🇵日本-02 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 27002, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name8', rename: '🇯🇵日本-03 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 22271, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name9', rename: '🇯🇵日本-04 H 0.1x', type: hysteria2, server: records.jp02.ecmtxt.com, port: 14709, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: vgraxiw73sj1.sdkdns.vip, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name10', rename: '🇯🇵日本-05 H 0.1x', type: hysteria2, server: records.jp01.ecmtxt.com, port: 10443, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: vgraxiw73sj1.sdkdns.vip, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name11', rename: '🇹🇼台湾-01 T 1.0x', type: trojan, server: productandservice.infralinkplus.com, port: 27201, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, udp: true, skip-cert-verify: true, sni: claude.1maxai.com, network: tcp}
+    - {name: 'Name12', rename: '🇹🇼台湾-02 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 27202, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name13', rename: '🇸🇬新加坡-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 27401, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name14', rename: '🇸🇬新加坡-02 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 42881, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name15', rename: '🇰🇷韩国-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 46668, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name16', rename: '🇲🇾马来西亚-01S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43393, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name17', rename: '🇲🇾马来西亚-02 H 0.1x', type: hysteria2, server: records.my01.ecmtxt.com, port: 12368, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: records.my01.ecmtxt.com, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name18', rename: '🇻🇳越南-01 T 1.0x', type: trojan, server: productandservice.infralinkplus.com, port: 43396, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, udp: true, skip-cert-verify: true, sni: claude.1maxai.com, network: tcp}
+    - {name: 'Name19', rename: '🇵🇭菲律宾-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 27408, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name20', rename: '🇮🇩印尼-01 T 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43394, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name21', rename: '🇹🇭泰国-01 T 1.0x', type: trojan, server: productandservice.infralinkplus.com, port: 43395, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, udp: true, skip-cert-verify: true, sni: claude.1maxai.com, network: tcp}
+    - {name: 'Name22', rename: '🇮🇳印度-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 42882, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name23', rename: '🇺🇸美国-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 27301, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name24', rename: '🇺🇸美国-02 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 33505, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name25', rename: '🇺🇸美国-03 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 33506, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name26', rename: '🇺🇸美国-04 H 1.0x', type: hysteria2, server: records.u2.ecmtxt.com, port: 9704, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: vgraxiw73sh5.sdkdns.vip, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name27', rename: '🇺🇸美国-05 H 1.0x', type: hysteria2, server: records.u1.ecmtxt.com, port: 10443, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: vgraxiw73sh5.sdkdns.vip, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name28', rename: '🇨🇦加拿大-01 S T 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 34016, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name29', rename: '🇲🇽墨西哥-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43592, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name30', rename: '🇧🇷巴西-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43586, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name31', rename: '🇦🇷阿根廷-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43590, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name32', rename: '🇦🇺澳大利亚-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 34017, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name33', rename: '🇷🇺俄罗斯-01 H 0.1x', type: hysteria2, server: records.ru1.ecmtxt.com, port: 15770, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: vgraxiw73sh5.sdkdns.vip, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name34', rename: '🇹🇷土耳其-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43397, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name35', rename: '🇫🇮芬兰-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43499, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name36', rename: '🇳🇿新西兰-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43500, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name37', rename: '🇨🇭瑞士-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43501, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name38', rename: '🇳🇱荷兰-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43591, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name39', rename: '🇪🇸西班牙-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 46926, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name40', rename: '🇮🇹意大利-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 46927, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name41', rename: '🇫🇷法国-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43498, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name42', rename: '🇩🇪德国-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43583, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name43', rename: '🇬🇧英国-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 44397, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name44', rename: '🇦🇪迪拜-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43497, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name45', rename: '🇰🇪肯尼亚-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43450, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name46', rename: '🇳🇬尼日利亚-01 S 1.0x', type: ss, server: productandservice.infralinkplus.com, port: 43451, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name47', rename: '🇺🇸Hysteria2 test 0.1', type: hysteria2, server: dns.hy01t.sdkdns.vip, port: 19466, password: edbdb7f9-6b83-4d54-c39e-0fc5e6533c72, skip-cert-verify: true, sni: dns.hy01t.sdkdns.vip, up: 30, down: 30, hop-interval: 60}
+    - {name: 'Name48', rename: '🇭🇰HongKong-01 Z 1.0x', type: ss, server: dns.hk.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name49', rename: '🇯🇵Japan-01 Z 1.0x', type: ss, server: dns.jp.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name50', rename: '🇹🇼Taiwan-01 Z 1.0x', type: ss, server: dns.tw.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name51', rename: '🇸🇬Singapore-01 Z 1.0x', type: ss, server: dns.sg.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name52', rename: '🇺🇸U.S.-01 Z 1.0x', type: ss, server: dns.us.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name53', rename: '🇨🇦Canada-01 Z 1.0x', type: ss, server: dns.ca.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name54', rename: '🇦🇺Australia-01 Z 1.0x', type: ss, server: dns.au.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name55', rename: '🇷🇺Russia-01 Z 1.0x', type: ss, server: dns.ru.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name56', rename: '🇬🇧U.K.-01 Z 1.0x', type: ss, server: dns.gb.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}
+    - {name: 'Name57', rename: '🇹🇷Turkey-01 Z 1.0x', type: ss, server: dns.tr.01.bgp.sdkdns.vip, port: 38080, password: 'MGU2Nzk1ZjI4MjNlYzk4Yw==:ZWRiZGI3ZjktNmI4My00ZA==', udp: true, cipher: 2022-blake3-aes-128-gcm}

@@ -3,11 +3,16 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
-	ServerPort = ":8090"
-	MihomoPath = "/etc/mihomo/config.yaml"
+	ServerPort           = ":8080"
+	MihomoPath           = "/etc/mihomo/config.yaml"
+	DefaultMihomoAPIPort = 9090
 )
 
 func GetDBPath() string {
@@ -71,4 +76,46 @@ func CopyConfigToMihomo() error {
 	}
 
 	return os.WriteFile(dstPath, data, 0644)
+}
+
+func GetMihomoAPIPort() int {
+	// 尝试从配置文件读取
+	configPath := GetConfigPath()
+	data, err := os.ReadFile(configPath)
+	if err == nil {
+		var config struct {
+			ExternalController string `yaml:"external-controller"`
+		}
+		if err := yaml.Unmarshal(data, &config); err == nil && config.ExternalController != "" {
+			// 解析 external-controller 字段，格式可能是 "127.0.0.1:9999" 或 ":9999"
+			parts := strings.Split(config.ExternalController, ":")
+			if len(parts) > 1 {
+				portStr := parts[len(parts)-1]
+				if port, err := strconv.Atoi(portStr); err == nil && port > 0 && port <= 65535 {
+					return port
+				}
+			}
+		}
+	}
+
+	// 尝试从 MihomoPath 读取
+	data, err = os.ReadFile(MihomoPath)
+	if err == nil {
+		var config struct {
+			ExternalController string `yaml:"external-controller"`
+		}
+		if err := yaml.Unmarshal(data, &config); err == nil && config.ExternalController != "" {
+			// 解析 external-controller 字段，格式可能是 "127.0.0.1:9999" 或 ":9999"
+			parts := strings.Split(config.ExternalController, ":")
+			if len(parts) > 1 {
+				portStr := parts[len(parts)-1]
+				if port, err := strconv.Atoi(portStr); err == nil && port > 0 && port <= 65535 {
+					return port
+				}
+			}
+		}
+	}
+
+	// 返回默认端口
+	return DefaultMihomoAPIPort
 }

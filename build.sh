@@ -180,7 +180,7 @@ echo "  停止服务: systemctl stop clash-manager"
 echo "  查看状态: systemctl status clash-manager"
 echo "  手动运行: $INSTALL_DIR/start.sh"
 echo ""
-echo "访问地址: http://localhost:8090"
+echo "访问地址: http://localhost:8080"
 echo ""
 EOF
 

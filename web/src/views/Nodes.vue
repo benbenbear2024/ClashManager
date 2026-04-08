@@ -46,18 +46,6 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="地区" min-width="80">
-          <template #default="{ row }">
-            <div v-if="nodeLocations[row.id] !== undefined">
-              <el-tag size="small">
-                {{ nodeLocations[row.id] }}
-              </el-tag>
-            </div>
-            <div v-else>
-              <el-tag type="info" size="small">-</el-tag>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column label="操作" min-width="120" fixed="right">
           <template #default="{ row }">
             <el-button type="success" link @click="handleTestNode(row)">检测</el-button>
@@ -188,9 +176,6 @@
             <el-form-item label="UDP转发">
               <el-switch v-model="nodeForm.UDP" />
               <span style="margin-left: 10px; color: #909399; font-size: 12px;">启用UDP转发</span>
-            </el-form-item>
-            <el-form-item label="地址">
-              <el-input v-model="nodeForm.Address" placeholder="请输入地址（可选）" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -589,7 +574,6 @@ const nodeForm = ref({
   Fingerprint: '',
   RealityShow: false,
   RealityDebug: false,
-  Address: '',
   AlterId: ''
 })
 
@@ -614,7 +598,6 @@ const getNodeDelayType = (delay) => {
 
 // 节点延迟和地区数据
 const nodeDelays = ref({})
-const nodeLocations = ref({})
 
 // 从 mihomo 获取节点延迟
 const getNodeDelay = async (nodeId) => {
@@ -656,32 +639,6 @@ const getNodeDelay = async (nodeId) => {
     console.error('获取节点延迟失败:', error)
   }
   return -1
-}
-
-// 获取节点地区
-const getNodeLocation = async (nodeId) => {
-  try {
-    const node = nodes.value.find(n => n.id === nodeId)
-    if (node && node.server) {
-      // 使用 ip-api.com 免费 API 查询 IP 地理位置
-      const response = await fetch(`http://ip-api.com/json/${node.server}?fields=country,regionName,city`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.status === 'success') {
-          if (data.city) {
-            return `${data.country} ${data.regionName} ${data.city}`
-          } else if (data.regionName) {
-            return `${data.country} ${data.regionName}`
-          } else if (data.country) {
-            return data.country
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('获取节点地区失败:', error)
-  }
-  return '未知'
 }
 
 const loadNodes = async () => {
@@ -873,8 +830,7 @@ const parseNodeLink = (link) => {
         Username: parts[2],
         Password: parts[3],
         Name: parts[4] || generateAutoName(),
-        Rename: parts[4] || '',
-        Address: ''
+        Rename: parts[4] || ''
       }
     }
     // 尝试 | 分隔符
@@ -887,8 +843,7 @@ const parseNodeLink = (link) => {
         Username: parts[2],
         Password: parts[3],
         Name: parts[4] || generateAutoName(),
-        Rename: parts[4] || '',
-        Address: ''
+        Rename: parts[4] || ''
       }
     }
     return null
@@ -1019,7 +974,6 @@ const parseSSLink = (link, baseNode) => {
       Port: port,
       Cipher: method,
       Password: password,
-      Address: '',
       Name: name || baseNode.Name
     }
   } catch (error) {
@@ -1073,7 +1027,6 @@ const parseVMessLink = (link, baseNode) => {
       Network: config.net || config.network || 'tcp',
       Path: config.path || '',
       Host: config.host || config.sni || '',
-      Address: config.address || '',
       TLS: config.tls === 'tls' || config.security === 'tls' || config.tls === true,
       Name: config.ps || config.remarks || baseNode.Name
     }
@@ -1094,7 +1047,6 @@ const parseTrojanLink = (link, baseNode) => {
       Password: decodeURIComponent(url.username),
       SNI: url.searchParams.get('sni') || url.hostname,
       AllowInsecure: url.searchParams.get('allowInsecure') === '1',
-      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -1131,7 +1083,6 @@ const parseVLESSLink = (link, baseNode) => {
       Fingerprint: url.searchParams.get('fp') || 'safari', // Reality 指纹
       RealityShow: false,
       RealityDebug: false,
-      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -1150,7 +1101,6 @@ const parseSocksLink = (link, baseNode) => {
       Port: parseInt(url.port) || 1080,
       Username: decodeURIComponent(url.username) || '',
       Password: decodeURIComponent(url.password) || '',
-      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -1176,7 +1126,6 @@ const parseHysteria2Link = (link, baseNode) => {
       Up: parseInt(url.searchParams.get('up')) || 30, // 默认上行带宽 30
       Down: parseInt(url.searchParams.get('down')) || 30, // 默认下行带宽 30
       HopInterval: parseInt(url.searchParams.get('hop-interval')) || 60, // 默认跳跃间隔 60
-      Address: '',
       Name: baseNode.Name
     }
   } catch (error) {
@@ -1330,7 +1279,6 @@ const handleEdit = (row) => {
     SkipCert: row.skipCert || false,
     UDP: row.udp || false,
     ALPN: row.alpn || '',
-    Address: row.address || '',
     AlterId: row.alterId || '',
     ExtraConfig: row.extraConfig || '',
     Rename: row.rename || '',
@@ -1430,13 +1378,10 @@ const handleTestNode = async (row) => {
       nodeDelays.value[row.id] = delay
     }
     
-    const location = await getNodeLocation(row.id)
-    nodeLocations.value[row.id] = location
-    
     if (delay !== -1) {
-      ElMessage.success(`节点 ${row.name} 检测完成: ${delay}ms, ${location}`)
+      ElMessage.success(`节点 ${row.name} 检测完成: ${delay}ms`)
     } else {
-      ElMessage.warning(`节点 ${row.name} 延迟检测失败，地区: ${location}`)
+      ElMessage.warning(`节点 ${row.name} 延迟检测失败`)
     }
   } catch (error) {
     console.error('检测节点失败:', error)
@@ -1460,9 +1405,6 @@ const handleBatchTest = async () => {
         if (delay !== -1) {
           nodeDelays.value[nodeId] = delay
         }
-        
-        const location = await getNodeLocation(nodeId)
-        nodeLocations.value[nodeId] = location
       }
     }
     

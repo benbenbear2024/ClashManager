@@ -109,7 +109,7 @@ cd ClashManager
 go run cmd/server/main.go
 ```
 
-后端默认运行在 `http://localhost:8090`
+后端默认运行在 `http://localhost:8080`
 
 **3. 前端开发（可选）**
 ```bash
@@ -149,7 +149,7 @@ go build -o clash-manager cmd/server/main.go
 
 ### 首次使用
 
-1. 访问 `http://localhost:8090`
+1. 访问 `http://localhost:8080`
 2. 首次访问会自动跳转到初始化页面
 3. 创建管理员账号（用户名和密码）
 4. 登录后即可开始配置
@@ -173,7 +173,7 @@ go run cmd/server/main.go --reset-admin=新密码
 ### 配置说明
 
 #### 默认配置
-- 服务器端口: `:8090`
+- 服务器端口: `:8080`
 - 数据库路径: `data/clash.db`（自动在可执行文件目录或当前工作目录创建）
 
 #### 修改默认配置
@@ -354,7 +354,7 @@ go build -o clash-manager cmd/server/main.go
 
 3. **运行**
 ```bash
-./clash-manager --port 8090
+./clash-manager --port 8080
 ```
 
 ### 使用反向代理
@@ -366,7 +366,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        proxy_pass http://localhost:8090;
+        proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -387,7 +387,7 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /app/clash-manager .
-EXPOSE 8090
+EXPOSE 8080
 CMD ["./clash-manager"]
 ```
 
@@ -441,7 +441,7 @@ go run cmd/server/main.go --port 9090
 A: 默认在可执行文件同目录的 `data/clash.db`，也可在当前工作目录的 `data/clash.db`。
 
 ### Q: 忘记的订阅链接格式是什么？
-A: `http://your-domain:8090/sub/{token}`
+A: `http://your-domain:8080/sub/{token}`
 
 ## 贡献
 

@@ -162,7 +162,7 @@ echo echo "  停止服务: systemctl stop clash-manager" >> "%BUILD_DIR%\install
 echo echo "  查看状态: systemctl status clash-manager" >> "%BUILD_DIR%\install.sh"
 echo echo "  手动运行: $INSTALL_DIR/start.sh" >> "%BUILD_DIR%\install.sh"
 echo echo "" >> "%BUILD_DIR%\install.sh"
-echo echo "访问地址: http://localhost:8090" >> "%BUILD_DIR%\install.sh"
+echo echo "访问地址: http://localhost:8080" >> "%BUILD_DIR%\install.sh"
 echo echo "" >> "%BUILD_DIR%\install.sh"
 
 :: 创建 README
@@ -177,7 +177,7 @@ echo. >> "%BUILD_DIR%\README.txt"
 echo 或者手动运行: >> "%BUILD_DIR%\README.txt"
 echo   ./start.sh >> "%BUILD_DIR%\README.txt"
 echo. >> "%BUILD_DIR%\README.txt"
-echo 访问地址: http://localhost:8090 >> "%BUILD_DIR%\README.txt"
+echo 访问地址: http://localhost:8080 >> "%BUILD_DIR%\README.txt"
 echo. >> "%BUILD_DIR%\README.txt"
 echo 文件说明: >> "%BUILD_DIR%\README.txt"
 echo   - clash-manager: 主程序 >> "%BUILD_DIR%\README.txt"
