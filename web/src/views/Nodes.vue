@@ -58,7 +58,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[50, 100, 200]"
+          :page-sizes="[15, 30, 50, 100]"
           layout="total, prev, pager, next, sizes"
           :total="nodes.length"
           @size-change="handleSizeChange"
@@ -529,7 +529,7 @@ const batchEditInputCount = ref(0)
 
 // 分页相关
 const currentPage = ref(1)
-const pageSize = ref(50)
+const pageSize = ref(30)
 const pagedNodes = ref([])
 const jumpPage = ref(1)
 
