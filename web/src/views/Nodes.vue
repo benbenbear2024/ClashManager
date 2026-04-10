@@ -624,19 +624,46 @@ const getNodeDelay = async (nodeId) => {
       console.error('解析配置文件失败:', error)
     }
     
-    const response = await fetch(`http://localhost:${mihomoPort}/proxies/${nodeId}/delay`, {
+    // 找到节点对象，获取节点名称
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (!node) {
+      console.error('找不到节点:', nodeId)
+      return -1
+    }
+    
+    const nodeName = node.name
+    const testUrl = 'http://cp.cloudflare.com'
+    const timeout = 5000
+    
+    // 使用后端代理的 API 路径
+    const apiUrl = `/api/proxies/${encodeURIComponent(nodeName)}/delay?url=${encodeURIComponent(testUrl)}&timeout=${timeout}`
+    
+    // 设置超时
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+    
+    const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      signal: controller.signal
     })
+    
+    clearTimeout(timeoutId)
     
     if (response.ok) {
       const data = await response.json()
-      return data.delay
+      return data.delay || -1
+    } else {
+      console.error('获取节点延迟失败:', response.status, response.statusText)
     }
   } catch (error) {
-    console.error('获取节点延迟失败:', error)
+    if (error.name === 'AbortError') {
+      console.error('获取节点延迟超时:', error)
+    } else {
+      console.error('获取节点延迟失败:', error)
+    }
   }
   return -1
 }
@@ -1374,9 +1401,8 @@ const handleTestNode = async (row) => {
     ElMessage.info(`正在检测节点: ${row.name}`)
     
     const delay = await getNodeDelay(row.id)
-    if (delay !== -1) {
-      nodeDelays.value[row.id] = delay
-    }
+    // 无论延迟是否为-1，都更新UI
+    nodeDelays.value[row.id] = delay
     
     if (delay !== -1) {
       ElMessage.success(`节点 ${row.name} 检测完成: ${delay}ms`)
@@ -1385,7 +1411,9 @@ const handleTestNode = async (row) => {
     }
   } catch (error) {
     console.error('检测节点失败:', error)
-    ElMessage.error(`检测节点失败: ${error.message}`)
+    // 更新UI显示失败状态
+    nodeDelays.value[row.id] = -1
+    ElMessage.error(`检测节点失败: ${error.message || '未知错误'}`)
   }
 }
 
@@ -1398,20 +1426,32 @@ const handleBatchTest = async () => {
   try {
     ElMessage.info(`开始检测 ${selectedNodes.value.length} 个节点...`)
     
+    let successCount = 0
+    let failedCount = 0
+    
     for (const nodeId of selectedNodes.value) {
       const node = nodes.value.find(n => n.id === nodeId)
       if (node) {
-        const delay = await getNodeDelay(nodeId)
-        if (delay !== -1) {
+        try {
+          const delay = await getNodeDelay(nodeId)
           nodeDelays.value[nodeId] = delay
+          if (delay !== -1) {
+            successCount++
+          } else {
+            failedCount++
+          }
+        } catch (error) {
+          console.error(`检测节点 ${node.name} 失败:`, error)
+          nodeDelays.value[nodeId] = -1
+          failedCount++
         }
       }
     }
     
-    ElMessage.success(`批量检测完成`)
+    ElMessage.success(`批量检测完成: ${successCount} 个成功，${failedCount} 个失败`)
   } catch (error) {
     console.error('批量检测失败:', error)
-    ElMessage.error(`批量检测失败: ${error.message}`)
+    ElMessage.error(`批量检测失败: ${error.message || '未知错误'}`)
   }
 }
 

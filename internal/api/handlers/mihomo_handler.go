@@ -3,7 +3,12 @@ package handlers
 import (
 	"clash-manager/internal/config"
 	"clash-manager/internal/service"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -103,4 +108,70 @@ func (h *MihomoHandler) ReloadMihomo(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Mihomo config reloaded successfully"})
+}
+
+// ProxyMihomoAPI 代理 Mihomo API 请求
+func (h *MihomoHandler) ProxyMihomoAPI(c *gin.Context) {
+	// 记录请求信息
+	fmt.Printf("Received request: %s %s\n", c.Request.Method, c.Request.URL.Path)
+	fmt.Printf("Path parameter: %s\n", c.Param("path"))
+
+	// 获取 mihomo API 端口
+	mihomoPort := config.GetMihomoAPIPort()
+	fmt.Printf("Mihomo port: %d\n", mihomoPort)
+
+	// 获取完整路径，从 /proxies 开始
+	fullPath := c.Request.URL.Path
+	// 移除 /api 前缀
+	proxyPath := strings.TrimPrefix(fullPath, "/api")
+	fmt.Printf("Proxy path: %s\n", proxyPath)
+
+	// 构建目标 URL
+	targetURL := &url.URL{
+		Scheme:   "http",
+		Host:     "127.0.0.1:" + strconv.Itoa(mihomoPort),
+		Path:     proxyPath,
+		RawQuery: c.Request.URL.RawQuery,
+	}
+	fmt.Printf("Target URL: %s\n", targetURL.String())
+
+	// 创建新的请求
+	req, err := http.NewRequest(c.Request.Method, targetURL.String(), c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request: " + err.Error()})
+		return
+	}
+
+	// 复制请求头
+	for key, values := range c.Request.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+
+	// 发送请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to proxy request: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	// 复制响应头
+	for key, values := range resp.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+
+	// 设置响应状态码
+	c.Status(resp.StatusCode)
+
+	// 复制响应体
+	_, err = io.Copy(c.Writer, resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy response: " + err.Error()})
+		return
+	}
 }

@@ -53,5 +53,8 @@ func SetupRoutes(r *gin.Engine) {
 
 		// 系统信息
 		api.GET("/system/info", handlers.SystemHandler())
+
+		// Mihomo API 代理
+		api.Any("/proxies/*path", mihomoHandler.ProxyMihomoAPI)
 	}
 }
